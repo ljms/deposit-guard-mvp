@@ -1,5 +1,7 @@
 import { getAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export type Report = {
   id: string;
   storage_path: string;

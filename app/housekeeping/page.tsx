@@ -1,6 +1,8 @@
 import { getAdminClient } from "@/lib/supabase/admin";
 import { HousekeepingClient } from "./HousekeepingClient";
 
+export const dynamic = "force-dynamic";
+
 type UserRow = {
   id: string;
   email: string;
