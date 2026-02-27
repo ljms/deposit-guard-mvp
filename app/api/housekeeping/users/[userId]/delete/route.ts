@@ -4,7 +4,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const supabase = await createClient();
   const {
@@ -27,7 +27,7 @@ export async function POST(
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
-  const targetUserId = params.userId;
+  const { userId: targetUserId } = await params;
 
   try {
     await admin.from("photos").delete().eq("user_id", targetUserId);

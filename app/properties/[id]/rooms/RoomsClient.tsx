@@ -36,7 +36,6 @@ type Property = {
   address_line2: string | null;
   city: string | null;
   postcode: string | null;
-  number_of_rooms: number;
   property_type?: string | null;
   is_locked?: boolean | null;
 };
@@ -82,14 +81,9 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   const [loading, setLoading] = useState(false);
   const [reportGenerating, setReportGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEditingRooms, setIsEditingRooms] = useState(false);
-  const [editRoomsValue, setEditRoomsValue] = useState(property.number_of_rooms ?? 1);
-  const [savingRooms, setSavingRooms] = useState(false);
   const [isLocked, setIsLocked] = useState(Boolean(property.is_locked));
 
-  const totalRooms = property.number_of_rooms ?? 0;
   const currentCount = rooms.length;
-  const canContinue = totalRooms > 0 && currentCount === totalRooms;
 
   function buildGroupKey(room: { room_type: RoomType; custom_name: string | null }) {
     if (room.room_type === 'Custom') {
@@ -229,42 +223,6 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
       setError('Something went wrong while deleting the room. Please try again.');
     } finally {
       setLoading(false);
-    }
-  }
-
-  function startEditingRooms() {
-    if (isLocked) return;
-    setEditRoomsValue(property.number_of_rooms ?? 1);
-    setError(null);
-    setIsEditingRooms(true);
-  }
-
-  async function handleSaveNumberOfRooms() {
-    if (isLocked) return;
-    const value = Math.min(12, Math.max(1, Number(editRoomsValue)));
-    if (value < rooms.length) {
-      setError(
-        'You have already added more rooms than this. Please delete some rooms first.'
-      );
-      return;
-    }
-    setSavingRooms(true);
-    setError(null);
-    try {
-      const { error: updateError } = await supabase
-        .from('properties')
-        .update({ number_of_rooms: value })
-        .eq('id', property.id);
-      if (updateError) {
-        setError(updateError.message || 'Unable to update. Please try again.');
-        return;
-      }
-      setIsEditingRooms(false);
-      router.refresh();
-    } catch (err) {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setSavingRooms(false);
     }
   }
 
@@ -518,8 +476,8 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
       drawRow('Address', addressFull);
       drawRow('Property Type', propertyType);
       drawRow('Report Generated', reportGenerated);
-      drawRow('Total Rooms', String(property.number_of_rooms ?? rooms.length));
-        drawRow('Total Photos', String(photos.length));
+      drawRow('Total Rooms', String(rooms.length));
+      drawRow('Total Photos', String(photos.length));
 
         addFooter(2);
 
@@ -779,24 +737,6 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             >
               Property
             </p>
-            {!isLocked && !isEditingRooms && (
-              <button
-                type="button"
-                onClick={startEditingRooms}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  borderRadius: '9999px',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: '#ffffff',
-                  color: '#64748B',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Edit
-              </button>
-            )}
           </div>
           <h1
             style={{
@@ -820,105 +760,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             </p>
           ))}
 
-          {isEditingRooms && !isLocked && (
-            <div
-              style={{
-                marginTop: '1rem',
-                padding: '1rem',
-                borderRadius: '0.9rem',
-                border: '1px solid #E2E8F0',
-                backgroundColor: '#F8FAFC',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem',
-              }}
-            >
-              <label
-                htmlFor="edit-number-of-rooms"
-                style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 500,
-                  color: '#0F172A',
-                }}
-              >
-                Number of rooms
-              </label>
-              <input
-                id="edit-number-of-rooms"
-                type="number"
-                min={1}
-                max={12}
-                value={editRoomsValue}
-                onChange={(e) =>
-                  setEditRoomsValue(Math.min(12, Math.max(1, Number(e.target.value) || 1)))
-                }
-                style={{
-                  width: '100%',
-                  maxWidth: '6rem',
-                  padding: '0.6rem 0.75rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #CBD5E1',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  color: '#0F172A',
-                }}
-              />
-              {editRoomsValue < rooms.length && (
-                <p
-                  style={{
-                    fontSize: '0.85rem',
-                    color: '#B91C1C',
-                    margin: 0,
-                  }}
-                >
-                  You have already added more rooms than this. Please delete some rooms first.
-                </p>
-              )}
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditingRooms(false);
-                    setError(null);
-                  }}
-                  disabled={savingRooms}
-                  style={{
-                    padding: '0.6rem 0.9rem',
-                    borderRadius: '9999px',
-                    border: '1px solid #E2E8F0',
-                    backgroundColor: '#ffffff',
-                    color: '#0F172A',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveNumberOfRooms}
-                  disabled={savingRooms || editRoomsValue < rooms.length}
-                  style={{
-                    padding: '0.6rem 1rem',
-                    borderRadius: '9999px',
-                    border: 'none',
-                    fontSize: '0.9rem',
-                    fontWeight: 500,
-                    backgroundColor:
-                      savingRooms || editRoomsValue < rooms.length ? '#94A3B8' : '#2563EB',
-                    color: '#ffffff',
-                    cursor: savingRooms || editRoomsValue < rooms.length ? 'default' : 'pointer',
-                    boxShadow:
-                      savingRooms || editRoomsValue < rooms.length
-                        ? 'none'
-                        : '0 8px 22px rgba(37, 99, 235, 0.35)',
-                  }}
-                >
-                  {savingRooms ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            </div>
-          )}
+          
         </div>
 
         <div
@@ -937,9 +779,8 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             }}
           >
             <span style={{ fontWeight: 600, color: '#0F172A' }}>
-              {currentCount} of {totalRooms}
-            </span>{' '}
-            rooms added
+              {currentCount} rooms
+            </span>
           </p>
 
           {!isLocked && (

@@ -155,7 +155,6 @@ export function HousekeepingUserDetailClient({ user, properties }: Props) {
                           }}
                         >
                           {property.property_type || "Unknown type"} ·{" "}
-                          {property.number_of_rooms ?? 0} rooms ·{" "}
                           {property.is_locked ? "Locked" : "Unlocked"}
                         </p>
                         <p

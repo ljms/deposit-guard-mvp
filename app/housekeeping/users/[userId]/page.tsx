@@ -13,7 +13,6 @@ export type Property = {
   city: string | null;
   postcode: string | null;
   property_type: string | null;
-  number_of_rooms: number | null;
   is_locked: boolean | null;
   created_at: string;
   reports: Report[];
@@ -34,7 +33,7 @@ async function getUserData(userId: string) {
     admin
       .from("properties")
       .select(
-        "id, address_line1, address_line2, city, postcode, property_type, number_of_rooms, is_locked, created_at"
+        "id, address_line1, address_line2, city, postcode, property_type, is_locked, created_at"
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
@@ -66,7 +65,6 @@ async function getUserData(userId: string) {
     city: p.city,
     postcode: p.postcode,
     property_type: p.property_type,
-    number_of_rooms: p.number_of_rooms,
     is_locked: p.is_locked,
     created_at: p.created_at,
     reports: reportsByProperty.get(p.id) ?? [],

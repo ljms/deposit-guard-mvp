@@ -4,7 +4,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { userId: string; propertyId: string } }
+  { params }: { params: Promise<{ userId: string; propertyId: string }> }
 ) {
   const supabase = await createClient();
   const {
@@ -27,7 +27,7 @@ export async function POST(
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
-  const { userId, propertyId } = params;
+  const { userId, propertyId } = await params;
 
   try {
     const { data: photos } = await admin

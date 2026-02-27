@@ -4,9 +4,10 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { reportId: string } }
+  { params }: { params: Promise<{ reportId: string }> }
 ) {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -27,7 +28,7 @@ export async function POST(
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
-  const reportId = params.reportId;
+  const { reportId } = await params;
 
   const { data: report, error } = await admin
     .from("reports")
@@ -42,7 +43,9 @@ export async function POST(
     );
   }
 
-  const { data, error: urlError } = await admin.storage
+  // Use the regular Supabase client for storage, which is already
+  // known to work for signed URLs elsewhere in the app.
+  const { data, error: urlError } = await supabase.storage
     .from("reports")
     .createSignedUrl(report.storage_path, 3600);
 

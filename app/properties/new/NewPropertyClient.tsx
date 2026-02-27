@@ -13,7 +13,6 @@ export function NewPropertyClient() {
   const [city, setCity] = useState('');
   const [postcode, setPostcode] = useState('');
   const [propertyType, setPropertyType] = useState<'House' | 'Apartment' | ''>('');
-  const [rooms, setRooms] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -38,13 +37,6 @@ export function NewPropertyClient() {
 
     if (!propertyType) {
       setError('Please select a property type.');
-      return;
-    }
-
-    const roomCount = typeof rooms === 'number' ? rooms : Number(rooms);
-
-    if (!Number.isFinite(roomCount) || roomCount < 1 || roomCount > 12) {
-      setError('Number of rooms must be between 1 and 12.');
       return;
     }
 
@@ -74,7 +66,6 @@ export function NewPropertyClient() {
         city: city.trim(),
         postcode: postcode.trim(),
         property_type: propertyType,
-        number_of_rooms: roomCount,
       });
 
       if (insertError) {
@@ -375,48 +366,6 @@ export function NewPropertyClient() {
               <option value="House">House</option>
               <option value="Apartment">Apartment</option>
             </select>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label
-              htmlFor="rooms"
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                color: '#0F172A',
-              }}
-            >
-              Number of rooms
-            </label>
-            <input
-              id="rooms"
-              type="number"
-              min={1}
-              required
-              value={rooms}
-              onChange={(e) => {
-                const value = e.target.value;
-                setRooms(value === '' ? '' : Number(value));
-              }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 0.9rem',
-                borderRadius: '0.75rem',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.95rem',
-                outline: 'none',
-                color: '#0F172A',
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#2563EB';
-                e.target.style.boxShadow = '0 0 0 1px rgba(37, 99, 235, 0.3)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#CBD5E1';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
           </div>
 
           <button
