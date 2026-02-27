@@ -34,6 +34,7 @@ type RoomDetailClientProps = {
   property: Property;
   room: Room;
   initialPhotos: Photo[];
+  isLocked: boolean;
 };
 
 const CARD_STYLE = {
@@ -61,6 +62,7 @@ export function RoomDetailClient({
   property,
   room,
   initialPhotos,
+  isLocked,
 }: RoomDetailClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -98,11 +100,13 @@ export function RoomDetailClient({
   }, [photos]);
 
   function openCamera() {
+    if (isLocked) return;
     setError(null);
     fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (isLocked) return;
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setPreviewFile(file);
@@ -114,6 +118,7 @@ export function RoomDetailClient({
   }
 
   function retake() {
+    if (isLocked) return;
     setPreviewFile(null);
     setPreviewDataUrl(null);
     setStep('idle');
@@ -126,6 +131,7 @@ export function RoomDetailClient({
   }
 
   async function savePhoto() {
+    if (isLocked) return;
     if (!previewFile) return;
     setLoading(true);
     setError(null);
@@ -173,6 +179,7 @@ export function RoomDetailClient({
   }
 
   async function deletePhoto(photo: Photo) {
+    if (isLocked) return;
     setLoading(true);
     setError(null);
     try {
@@ -227,6 +234,20 @@ export function RoomDetailClient({
           <span>Back to rooms</span>
         </Link>
 
+        {isLocked && (
+          <div
+            style={{
+              ...CARD_STYLE,
+              backgroundColor: '#EFF6FF',
+              borderColor: '#BFDBFE',
+              color: '#1D4ED8',
+              padding: '0.75rem 1rem',
+            }}
+          >
+            This property is locked. No further photos can be added.
+          </div>
+        )}
+
         <div style={CARD_STYLE}>
           <p
             style={{
@@ -275,7 +296,7 @@ export function RoomDetailClient({
           </div>
         )}
 
-        {step === 'idle' && (
+        {step === 'idle' && !isLocked && (
           <>
             <input
               ref={fileInputRef}
@@ -302,7 +323,7 @@ export function RoomDetailClient({
           </>
         )}
 
-        {step === 'preview' && previewDataUrl && (
+        {step === 'preview' && previewDataUrl && !isLocked && (
           <div style={CARD_STYLE}>
             <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#0F172A', marginBottom: '0.75rem' }}>
               Preview
@@ -361,7 +382,7 @@ export function RoomDetailClient({
           </div>
         )}
 
-        {step === 'note' && (
+        {step === 'note' && !isLocked && (
           <div style={CARD_STYLE}>
             <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#0F172A', marginBottom: '0.5rem' }}>
               Add an optional note

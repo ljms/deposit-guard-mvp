@@ -14,10 +14,20 @@ export default async function DashboardPage() {
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, address_line1, city, postcode")
+    .select("id, address_line1, city, postcode, is_locked")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  return <DashboardClient properties={properties ?? []} />;
+  const { data: reports } = await supabase
+    .from("reports")
+    .select("property_id, storage_path, created_at")
+    .eq("user_id", user.id);
+
+  return (
+    <DashboardClient
+      properties={properties ?? []}
+      reports={reports ?? []}
+    />
+  );
 }
 

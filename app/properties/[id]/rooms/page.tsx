@@ -20,7 +20,7 @@ export default async function RoomsPage({ params }: RoomsPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, number_of_rooms")
+    .select("id, address_line1, address_line2, city, postcode, number_of_rooms, property_type, is_locked")
     .eq("id", id)
     .single();
 

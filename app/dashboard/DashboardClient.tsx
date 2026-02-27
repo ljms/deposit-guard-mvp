@@ -12,20 +12,29 @@ type Property = {
   address_line1: string | null;
   city: string | null;
   postcode: string | null;
+  is_locked?: boolean | null;
+};
+
+type ReportSummary = {
+  property_id: string | number;
+  storage_path: string;
+  created_at: string | null;
 };
 
 type DashboardClientProps = {
   properties: Property[];
+  reports: ReportSummary[];
 };
 
 const CONFIRM_MESSAGE =
   'Are you sure you want to delete this property? This will delete all rooms and photos associated with it. This cannot be undone.';
 
-export function DashboardClient({ properties }: DashboardClientProps) {
+export function DashboardClient({ properties, reports }: DashboardClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
 
   async function handleDeleteProperty(property: Property, e: React.MouseEvent) {
     e.preventDefault();
@@ -47,6 +56,31 @@ export function DashboardClient({ properties }: DashboardClientProps) {
       setError('Something went wrong while deleting the property. Please try again.');
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDownloadReport(
+    property: Property,
+    report: ReportSummary,
+    e: React.MouseEvent
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    setError(null);
+    setDownloadingPath(report.storage_path);
+    try {
+      const { data, error: urlError } = await supabase.storage
+        .from('reports')
+        .createSignedUrl(report.storage_path, 3600);
+      if (urlError || !data?.signedUrl) {
+        setError(urlError?.message || 'Failed to generate download link.');
+        return;
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      setError('Something went wrong while downloading the report. Please try again.');
+    } finally {
+      setDownloadingPath(null);
     }
   }
 
@@ -208,67 +242,121 @@ export function DashboardClient({ properties }: DashboardClientProps) {
                 gap: '0.9rem',
               }}
             >
-              {properties.map((property) => (
-                <div
-                  key={property.id}
-                  style={{
-                    padding: '0.9rem 1rem',
-                    borderRadius: '0.9rem',
-                    border: '1px solid #E2E8F0',
-                    backgroundColor: '#ffffff',
-                    boxShadow: '0 6px 18px rgba(15, 23, 42, 0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <Link
-                    href={`/properties/${property.id}/rooms`}
+              {properties.map((property) => {
+                const isLocked = Boolean(property.is_locked);
+                const report = reports.find(
+                  (r) => String(r.property_id) === String(property.id)
+                );
+                return (
+                  <div
+                    key={property.id}
                     style={{
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      flex: 1,
-                      minWidth: 0,
+                      padding: '0.9rem 1rem',
+                      borderRadius: '0.9rem',
+                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#ffffff',
+                      boxShadow: '0 6px 18px rgba(15, 23, 42, 0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
                     }}
                   >
-                    <p
+                    <div
                       style={{
-                        fontSize: '0.98rem',
-                        fontWeight: 600,
-                        color: '#0F172A',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '0.5rem',
                       }}
                     >
-                      {property.address_line1 || 'Unnamed property'}
-                    </p>
-                    <p
+                      <Link
+                        href={`/properties/${property.id}/rooms`}
+                        style={{
+                          textDecoration: 'none',
+                          color: 'inherit',
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: '0.98rem',
+                            fontWeight: 600,
+                            color: '#0F172A',
+                          }}
+                        >
+                          {property.address_line1 || 'Unnamed property'}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: '0.88rem',
+                            color: '#64748B',
+                          }}
+                        >
+                          {[property.city, property.postcode].filter(Boolean).join(' • ')}
+                        </p>
+                      </Link>
+                      {isLocked && (
+                        <span
+                          style={{
+                            padding: '0.2rem 0.6rem',
+                            borderRadius: '9999px',
+                            backgroundColor: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            color: '#1D4ED8',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                    {report && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDownloadReport(property, report, e)}
+                        disabled={downloadingPath === report.storage_path}
+                        style={{
+                          alignSelf: 'flex-start',
+                          padding: '0.4rem 0.8rem',
+                          borderRadius: '9999px',
+                          border: '1px solid #DBEAFE',
+                          backgroundColor: '#EFF6FF',
+                          color: '#1D4ED8',
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          cursor:
+                            downloadingPath === report.storage_path ? 'default' : 'pointer',
+                        }}
+                      >
+                        {downloadingPath === report.storage_path
+                          ? 'Downloading…'
+                          : 'Download Report'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteProperty(property, e)}
+                      disabled={deletingId === property.id}
                       style={{
-                        fontSize: '0.88rem',
-                        color: '#64748B',
+                        alignSelf: 'flex-start',
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '9999px',
+                        border: '1px solid #FCA5A5',
+                        backgroundColor: '#FEF2F2',
+                        color: '#B91C1C',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        cursor: deletingId === property.id ? 'default' : 'pointer',
                       }}
                     >
-                      {[property.city, property.postcode].filter(Boolean).join(' • ')}
-                    </p>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteProperty(property, e)}
-                    disabled={deletingId === property.id}
-                    style={{
-                      alignSelf: 'flex-start',
-                      padding: '0.4rem 0.75rem',
-                      borderRadius: '9999px',
-                      border: '1px solid #FCA5A5',
-                      backgroundColor: '#FEF2F2',
-                      color: '#B91C1C',
-                      fontSize: '0.8rem',
-                      fontWeight: 500,
-                      cursor: deletingId === property.id ? 'default' : 'pointer',
-                    }}
-                  >
-                    {deletingId === property.id ? 'Deleting…' : 'Delete'}
-                  </button>
-                </div>
-              ))}
+                      {deletingId === property.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

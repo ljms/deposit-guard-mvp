@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getAdminClient } from '@/lib/supabase/admin';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -38,9 +39,29 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  // This will refresh the session if needed
-  // and set the refreshed session cookies on the response.
-  await supabase.auth.getUser();
+  // Refresh the session if needed and set refreshed cookies.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = req.nextUrl.pathname;
+
+  if (pathname.startsWith('/housekeeping')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+
+    const adminClient = getAdminClient();
+    const { data: adminRow, error } = await adminClient
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error || !adminRow) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+  }
 
   return res;
 }

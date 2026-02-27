@@ -37,6 +37,8 @@ type Property = {
   city: string | null;
   postcode: string | null;
   number_of_rooms: number;
+  property_type?: string | null;
+  is_locked?: boolean | null;
 };
 
 type PhotoRow = {
@@ -83,6 +85,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   const [isEditingRooms, setIsEditingRooms] = useState(false);
   const [editRoomsValue, setEditRoomsValue] = useState(property.number_of_rooms ?? 1);
   const [savingRooms, setSavingRooms] = useState(false);
+  const [isLocked, setIsLocked] = useState(Boolean(property.is_locked));
 
   const totalRooms = property.number_of_rooms ?? 0;
   const currentCount = rooms.length;
@@ -160,6 +163,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
       setError('Please select a room type.');
       return;
     }
+    if (isLocked) return;
 
     const isCustom = selectedType === 'Custom';
     const trimmedCustom = customName.trim();
@@ -206,6 +210,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   }
 
   async function handleDeleteRoom(id: RoomRow['id']) {
+    if (isLocked) return;
     setLoading(true);
     setError(null);
 
@@ -228,12 +233,14 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   }
 
   function startEditingRooms() {
+    if (isLocked) return;
     setEditRoomsValue(property.number_of_rooms ?? 1);
     setError(null);
     setIsEditingRooms(true);
   }
 
   async function handleSaveNumberOfRooms() {
+    if (isLocked) return;
     const value = Math.min(12, Math.max(1, Number(editRoomsValue)));
     if (value < rooms.length) {
       setError(
@@ -355,18 +362,83 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
         });
       }
 
+      // Load cover and header logo assets
+      async function loadAssetDataUrl(path: string): Promise<string | null> {
+        try {
+          const res = await fetch(path);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          return await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result as string);
+            r.onerror = reject;
+            r.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      }
+
+      const [coverDataUrl, logoDataUrl] = await Promise.all([
+        loadAssetDataUrl('/Report_Cover.png'),
+        loadAssetDataUrl('/dg-logo-dark.png'),
+      ]);
+
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      doc.setFont('helvetica', 'normal');
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 15;
       const contentW = pageW - margin * 2;
       const footerY = pageH - 12;
 
-      function addFooter(pageNum: number) {
-        doc.setFontSize(9);
+      function addHeader() {
+        const headerTop = margin;
+        const logoWidth = 38; // mm
+        const logoHeight = logoWidth * 0.3; // approximate aspect ratio
+
         doc.setFont('helvetica', 'normal');
-        doc.text('Deposit Guard', margin, footerY);
-        doc.text(`Page ${pageNum}`, pageW - margin, footerY, { align: 'right' });
+        doc.setFontSize(11);
+
+        // Left: logo
+        if (logoDataUrl) {
+          doc.addImage(logoDataUrl, 'PNG', margin, headerTop, logoWidth, logoHeight);
+        }
+
+        // Center: title
+        doc.setTextColor(55, 65, 81); // #374151
+        doc.text('Property Condition Report', pageW / 2, headerTop + 7, { align: 'center' });
+
+        // Right: address line 1
+        if (property.address_line1) {
+          doc.setFontSize(11);
+          doc.text(property.address_line1, pageW - margin, headerTop + 7, { align: 'right' });
+        }
+
+        // Divider
+        const lineY = headerTop + 16;
+        doc.setDrawColor(229, 231, 235); // #E5E7EB
+        doc.setLineWidth(0.3);
+        doc.line(margin, lineY, pageW - margin, lineY);
+
+        return lineY;
+      }
+
+      function addFooter(pageNum: number) {
+        const baseY = footerY;
+        doc.setFont('helvetica', 'normal');
+
+        // Report ID (bottom left)
+        doc.setFontSize(8);
+        doc.setTextColor(156, 163, 175); // #9CA3AF
+        doc.text('Report ID', margin, baseY - 4);
+        doc.setFontSize(9);
+        doc.setTextColor(17, 24, 39); // #111827
+        doc.text(String(property.id), margin, baseY);
+
+        // Page number (bottom right)
+        doc.setTextColor(55, 65, 81); // #374151
+        doc.text(`Page ${pageNum}`, pageW - margin, baseY, { align: 'right' });
       }
 
       const reportDate = new Date();
@@ -380,91 +452,242 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
         minute: '2-digit',
       });
 
-      doc.setFontSize(24);
+      // Cover page
+      if (coverDataUrl) {
+        doc.addImage(coverDataUrl, 'PNG', 0, 0, pageW, pageH);
+      }
+
+      // Summary page
+      doc.addPage();
+      const summaryHeaderBottom = addHeader();
+      let y = summaryHeaderBottom + 12;
+
+      doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text('Deposit Guard', pageW / 2, 35, { align: 'center' });
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Property Condition Report', pageW / 2, 48, { align: 'center' });
-      doc.setFontSize(11);
-      const addrLines = [
+      doc.setTextColor(17, 24, 39); // #111827
+      doc.text('Property Condition Report', margin, y);
+      y += 6;
+
+      // Divider
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.line(margin, y, pageW - margin, y);
+      y += 10;
+
+      const addressFull = [
         property.address_line1,
         property.address_line2,
         [property.city, property.postcode].filter(Boolean).join(' '),
-      ].filter(Boolean) as string[];
-      let y = 65;
-      addrLines.forEach((line) => {
-        doc.text(line, pageW / 2, y, { align: 'center' });
-        y += 7;
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+      const propertyType =
+        (property as any).property_type ||
+        ((property as any).propertyType as string | undefined) ||
+        '—';
+
+      const summaryDateStr = reportDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
       });
-      y += 5;
-      doc.text(`Report generated: ${dateStr} at ${timeStr}`, pageW / 2, y, { align: 'center' });
-      y += 12;
-      doc.setFontSize(9);
-      doc.text(
-        `This report documents property condition as of ${dateStr}. Photos are timestamped for evidential purposes.`,
-        pageW / 2,
-        y,
-        { maxWidth: contentW, align: 'center' }
-      );
-      addFooter(1);
+      const summaryTimeStr = reportDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const reportGenerated = `${summaryDateStr}, ${summaryTimeStr} GMT`;
 
-      const imgMaxW = contentW;
-      const imgMaxH = 140;
+      const labelX = margin;
+      const valueX = margin + 38;
+      const rowGap = 7;
 
-      rooms.forEach((room) => {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139); // grey labels
+
+      function drawRow(label: string, value: string) {
+        doc.text(label, labelX, y);
+        doc.setTextColor(15, 23, 42);
+        const wrapped = doc.splitTextToSize(value || '—', pageW - valueX - margin);
+        doc.text(wrapped, valueX, y);
+        y += Math.max(rowGap, wrapped.length * 4.5 + 2);
+        doc.setTextColor(100, 116, 139);
+      }
+
+      drawRow('Address', addressFull);
+      drawRow('Property Type', propertyType);
+      drawRow('Report Generated', reportGenerated);
+      drawRow('Total Rooms', String(property.number_of_rooms ?? rooms.length));
+        drawRow('Total Photos', String(photos.length));
+
+        addFooter(2);
+
+        // Content pages: per-room
+        const imgMaxW = 85;
+        const imgMaxH = 70;
+
+        rooms.forEach((room) => {
         const roomPhotos = photosWithData.filter((p) => String(p.photo.room_id) === String(room.id));
         if (roomPhotos.length === 0) return;
 
         doc.addPage();
-        let roomY = margin + 10;
+        const headerBottom = addHeader();
+        let gridY = headerBottom + 16 + 8; // 8mm gap below divider before room name
 
-        doc.setFontSize(14);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text(room.display_name || buildGroupKey(room), margin, roomY);
-        roomY += 12;
+        doc.setTextColor(17, 24, 39); // #111827
+        doc.text(room.display_name || buildGroupKey(room), margin, gridY);
+        gridY += 6 + 6; // 6mm gap below room name before first row
 
-        for (const { photo, dataUrl, width, height } of roomPhotos) {
-          const scale = Math.min(imgMaxW / width, imgMaxH / height, 1);
+        const cols = 2;
+        const gapX = 5;
+        const rowHeight = imgMaxH + 36; // include metadata + extra vertical spacing
+
+        roomPhotos.forEach(({ photo, dataUrl, width, height }, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+
+          if (col === 0 && row > 0) {
+            gridY += rowHeight;
+            if (gridY + rowHeight > footerY - 10) {
+              addFooter(doc.getNumberOfPages());
+              doc.addPage();
+              const hb = addHeader();
+              gridY = hb + 16 + 8;
+              doc.setFontSize(18);
+              doc.setFont('Inter', 'bold');
+              doc.setTextColor(17, 24, 39);
+              doc.text(room.display_name || buildGroupKey(room), margin, gridY);
+              gridY += 6 + 6;
+            }
+          }
+
+          const cellWidth = imgMaxW;
+          const x = margin + col * (cellWidth + gapX);
+          const yTop = gridY;
+
+          const scale = Math.min(cellWidth / width, imgMaxH / height, 1);
           const w = width * scale;
           const h = height * scale;
-          if (roomY + h > footerY - 20) {
-            addFooter(doc.getNumberOfPages());
-            doc.addPage();
-            roomY = margin;
-          }
-          doc.addImage(dataUrl, 'JPEG', margin, roomY, w, h);
-          roomY += h + 4;
-          doc.setFontSize(9);
+          const imgX = x + (cellWidth - w) / 2;
+
+          doc.addImage(dataUrl, 'JPEG', imgX, yTop, w, h, undefined, 'FAST');
+
+          let textY = yTop + h + 4;
+          const totalInRoom = roomPhotos.length;
+          doc.setFontSize(8); // ~8pt
           doc.setFont('helvetica', 'normal');
+          doc.setTextColor(156, 163, 175); // #9CA3AF
+          doc.text(`Photo ${index + 1} of ${totalInRoom}`, x, textY);
+          textY += 4;
+
           const takenAt = photo.taken_at
             ? new Date(photo.taken_at).toLocaleString('en-GB', {
                 day: '2-digit',
-                month: 'short',
+                month: 'long',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
-              })
+              }) + ' GMT'
             : '—';
-          doc.text(`Taken: ${takenAt}`, margin, roomY);
-          roomY += 6;
+          doc.setFontSize(9); // ~9pt
+          doc.setTextColor(17, 24, 39); // #111827
+          doc.text(takenAt, x, textY);
+          textY += 5;
+
           if (photo.note && photo.note.trim()) {
-            const noteLines = doc.splitTextToSize(photo.note.trim(), contentW);
-            doc.text(noteLines, margin, roomY);
-            roomY += noteLines.length * 5 + 8;
-          } else {
-            roomY += 6;
+            // 4mm gap above notes label
+            textY += 4;
+            doc.setFontSize(8);
+            doc.setTextColor(156, 163, 175); // #9CA3AF
+            doc.text('Notes', x, textY);
+            textY += 4;
+
+            doc.setFontSize(9);
+            doc.setTextColor(17, 24, 39); // #111827
+            const noteLines = doc.splitTextToSize(photo.note.trim(), cellWidth);
+            doc.text(noteLines, x, textY);
           }
-        }
+        });
 
         addFooter(doc.getNumberOfPages());
       });
 
-      const safeAddress = (property.address_line1 || 'Property').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').slice(0, 50);
+      const timestamp = Date.now();
+      const storagePath = `${userId}/${property.id}/${timestamp}.pdf`;
+      const pdfBlob = doc.output('blob');
+
+      const { error: uploadError } = await supabase.storage
+        .from('reports')
+        .upload(storagePath, pdfBlob, { contentType: 'application/pdf' });
+      if (uploadError) {
+        throw new Error(uploadError.message || 'Failed to upload report.');
+      }
+
+      const { error: insertError } = await supabase.from('reports').insert({
+        property_id: property.id,
+        user_id: userId,
+        storage_path: storagePath,
+        created_at: new Date().toISOString(),
+      });
+      if (insertError) {
+        throw new Error(insertError.message || 'Failed to save report record.');
+      }
+
+      const { error: lockError } = await supabase
+        .from('properties')
+        .update({ is_locked: true })
+        .eq('id', property.id);
+      if (lockError) {
+        throw new Error(lockError.message || 'Failed to lock property.');
+      }
+
+      setIsLocked(true);
+
+      const safeAddress = (property.address_line1 || 'Property')
+        .replace(/[^a-zA-Z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .slice(0, 50);
       const dateForFile = reportDate.toISOString().slice(0, 10);
       doc.save(`DepositGuard_Report_${safeAddress}_${dateForFile}.pdf`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report. Please try again.');
+    } finally {
+      setReportGenerating(false);
+    }
+  }
+
+  async function downloadReport() {
+    setReportGenerating(true);
+    setError(null);
+    try {
+      const { data: reports, error: reportsError } = await supabase
+        .from('reports')
+        .select('storage_path, created_at')
+        .eq('property_id', property.id)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (reportsError || !reports || reports.length === 0) {
+        setError(reportsError?.message || 'No report found to download.');
+        return;
+      }
+
+      const storagePath = reports[0].storage_path;
+      const { data, error: urlError } = await supabase.storage
+        .from('reports')
+        .createSignedUrl(storagePath, 3600);
+      if (urlError || !data?.signedUrl) {
+        setError(urlError?.message || 'Failed to generate download link.');
+        return;
+      }
+
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setError('Failed to download report. Please try again.');
     } finally {
       setReportGenerating(false);
     }
@@ -519,6 +742,21 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
           <span>Back to dashboard</span>
         </button>
 
+        {isLocked && (
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '0.9rem',
+              backgroundColor: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              color: '#1D4ED8',
+              fontSize: '0.9rem',
+            }}
+          >
+            This report has been generated and is now locked. No further changes can be made.
+          </div>
+        )}
+
         <div>
           <div
             style={{
@@ -541,7 +779,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             >
               Property
             </p>
-            {!isEditingRooms && (
+            {!isLocked && !isEditingRooms && (
               <button
                 type="button"
                 onClick={startEditingRooms}
@@ -582,7 +820,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             </p>
           ))}
 
-          {isEditingRooms && (
+          {isEditingRooms && !isLocked && (
             <div
               style={{
                 marginTop: '1rem',
@@ -704,26 +942,28 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
             rooms added
           </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsAdding(true);
-            }}
-            disabled={loading}
-            style={{
-              padding: '0.6rem 1rem',
-              borderRadius: '9999px',
-              border: 'none',
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              backgroundColor: '#2563EB',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 8px 22px rgba(37, 99, 235, 0.35)',
-            }}
-          >
-            Add Room
-          </button>
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsAdding(true);
+              }}
+              disabled={loading}
+              style={{
+                padding: '0.6rem 1rem',
+                borderRadius: '9999px',
+                border: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                backgroundColor: '#2563EB',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 8px 22px rgba(37, 99, 235, 0.35)',
+              }}
+            >
+              Add Room
+            </button>
+          )}
         </div>
 
         {error && (
@@ -935,28 +1175,30 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
                     </p>
                   )}
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteRoom(room.id)}
-                  disabled={loading}
-                  style={{
-                    padding: '0.35rem 0.75rem',
-                    borderRadius: '9999px',
-                    border: '1px solid #FCA5A5',
-                    backgroundColor: '#FEF2F2',
-                    color: '#B91C1C',
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Delete
-                </button>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRoom(room.id)}
+                    disabled={loading}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '9999px',
+                      border: '1px solid #FCA5A5',
+                      backgroundColor: '#FEF2F2',
+                      color: '#B91C1C',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             ))
           )}
         </div>
 
-        {totalPhotoCount > 0 && (
+        {(totalPhotoCount > 0 || isLocked) && (
           <div
             style={{
               marginTop: '0.5rem',
@@ -976,11 +1218,13 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
                 margin: 0,
               }}
             >
-              Export a PDF report of all captured photos for this property.
+              {isLocked
+                ? 'Download the locked report for this property.'
+                : 'Export a PDF report of all captured photos for this property.'}
             </p>
             <button
               type="button"
-              onClick={generateReport}
+              onClick={isLocked ? downloadReport : generateReport}
               disabled={reportGenerating}
               style={{
                 width: '100%',
@@ -995,35 +1239,16 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
                 boxShadow: reportGenerating ? 'none' : '0 14px 34px rgba(37, 99, 235, 0.45)',
               }}
             >
-              {reportGenerating ? 'Generating report…' : 'Generate Report'}
+              {reportGenerating
+                ? isLocked
+                  ? 'Downloading…'
+                  : 'Generating report…'
+                : isLocked
+                  ? 'Download Report'
+                  : 'Generate Report'}
             </button>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => {
-            if (canContinue) {
-              router.push('/dashboard');
-            }
-          }}
-          disabled={!canContinue}
-          style={{
-            marginTop: '0.75rem',
-            width: '100%',
-            padding: '0.9rem 1rem',
-            borderRadius: '9999px',
-            border: 'none',
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            backgroundColor: canContinue ? '#2563EB' : '#CBD5E1',
-            color: canContinue ? '#ffffff' : '#64748B',
-            cursor: canContinue ? 'pointer' : 'default',
-            boxShadow: canContinue ? '0 14px 34px rgba(37, 99, 235, 0.45)' : 'none',
-          }}
-        >
-          Continue
-        </button>
       </div>
     </div>
   );

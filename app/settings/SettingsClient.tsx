@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 type SettingsClientProps = {
   initialEmail: string;
+  isAdmin: boolean;
 };
 
 const CARD_STYLE = {
@@ -39,7 +40,7 @@ const PRIMARY_BUTTON = {
   boxShadow: '0 8px 22px rgba(37, 99, 235, 0.35)',
 };
 
-export function SettingsClient({ initialEmail }: SettingsClientProps) {
+export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -160,16 +161,41 @@ export function SettingsClient({ initialEmail }: SettingsClientProps) {
           <span>Back to dashboard</span>
         </Link>
 
-        <h1
+        <div
           style={{
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            color: '#0F172A',
-            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
           }}
         >
-          Settings
-        </h1>
+          <h1
+            style={{
+              fontSize: '1.5rem',
+              fontWeight: 600,
+              color: '#0F172A',
+              margin: 0,
+            }}
+          >
+            Settings
+          </h1>
+          {isAdmin && (
+            <Link
+              href="/housekeeping"
+              style={{
+                fontSize: '0.85rem',
+                color: '#64748B',
+                textDecoration: 'none',
+                padding: '0.35rem 0.7rem',
+                borderRadius: '9999px',
+                border: '1px solid #E2E8F0',
+                backgroundColor: '#ffffff',
+              }}
+            >
+              Housekeeping
+            </Link>
+          )}
+        </div>
 
         {/* Change Email */}
         <div style={CARD_STYLE}>
