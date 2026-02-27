@@ -56,7 +56,7 @@ export default function SignupPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#1A1A86',
+        backgroundColor: '#F1F5F9',
         padding: '1.5rem',
       }}
     >
