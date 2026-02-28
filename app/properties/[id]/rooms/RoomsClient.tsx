@@ -435,7 +435,8 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
       const addressFull = [
         property.address_line1,
         property.address_line2,
-        [property.city, property.postcode].filter(Boolean).join(' '),
+        property.city,
+        property.postcode,
       ]
         .filter(Boolean)
         .join(', ');
@@ -654,7 +655,8 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   const addressLines = [
     property.address_line1,
     property.address_line2,
-    [property.city, property.postcode].filter(Boolean).join(' '),
+    property.city,
+    property.postcode,
   ].filter((line) => line && String(line).trim().length > 0) as string[];
 
   return (

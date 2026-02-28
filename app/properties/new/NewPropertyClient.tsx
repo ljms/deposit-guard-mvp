@@ -8,6 +8,7 @@ export function NewPropertyClient() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [reportType, setReportType] = useState<'check-in' | 'interim' | 'check-out' | ''>('');
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
@@ -32,6 +33,11 @@ export function NewPropertyClient() {
 
     if (!postcode.trim()) {
       setError('Postcode is required.');
+      return;
+    }
+
+    if (!reportType) {
+      setError('Please select a report type.');
       return;
     }
 
@@ -144,7 +150,7 @@ export function NewPropertyClient() {
               color: '#0F172A',
             }}
           >
-            Add property
+            Create new report
           </h1>
           <p
             style={{
@@ -152,7 +158,7 @@ export function NewPropertyClient() {
               color: '#64748B',
             }}
           >
-            Capture the key details of your rental so you can start documenting its condition.
+            Select a report type and add your property details to get started.
           </p>
         </div>
 
@@ -173,6 +179,51 @@ export function NewPropertyClient() {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label
+              htmlFor="reportType"
+              style={{
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                color: '#0F172A',
+              }}
+            >
+              Report type
+            </label>
+            <select
+              id="reportType"
+              required
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value as 'check-in' | 'interim' | 'check-out')}
+              style={{
+                width: '100%',
+                padding: '0.75rem 0.9rem',
+                borderRadius: '0.75rem',
+                border: '1px solid #CBD5E1',
+                fontSize: '0.95rem',
+                outline: 'none',
+                backgroundColor: '#ffffff',
+                color: '#0F172A',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#2563EB';
+                e.target.style.boxShadow = '0 0 0 1px rgba(37, 99, 235, 0.3)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#CBD5E1';
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              <option value="" disabled>
+                Select report type
+              </option>
+              <option value="check-in">Check-In Report</option>
+              <option value="interim">Interim Report</option>
+              <option value="check-out">Check-Out Report</option>
+            </select>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <label
               htmlFor="addressLine1"
