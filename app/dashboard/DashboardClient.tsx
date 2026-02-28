@@ -194,28 +194,42 @@ export function DashboardClient({
     <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-[#E0F2FE] flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#0284C7"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-[#E0F2FE] flex items-center justify-center">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0284C7"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            </div>
+            <h1
+              className="text-lg font-semibold text-[#0F172A]"
+              style={fontStyle}
             >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
+              Dashboard
+            </h1>
           </div>
-          <h1
-            className="text-lg font-semibold text-[#0F172A]"
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/");
+              router.refresh();
+            }}
+            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors"
             style={fontStyle}
           >
-            Dashboard
-          </h1>
+            Log Out
+          </button>
         </div>
       </header>
 

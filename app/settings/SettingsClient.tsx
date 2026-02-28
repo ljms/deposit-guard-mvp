@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -11,35 +11,9 @@ type SettingsClientProps = {
   isAdmin: boolean;
 };
 
-const CARD_STYLE = {
-  backgroundColor: '#ffffff',
-  borderRadius: '1rem',
-  padding: '1.25rem 1.5rem',
-  boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)',
-  border: '1px solid #E2E8F0',
-};
-
-const INPUT_STYLE = {
-  width: '100%' as const,
-  padding: '0.75rem 0.9rem',
-  borderRadius: '0.75rem',
-  border: '1px solid #CBD5E1',
-  fontSize: '0.95rem',
-  outline: 'none' as const,
-  color: '#0F172A',
-};
-
-const PRIMARY_BUTTON = {
-  padding: '0.7rem 1.1rem',
-  borderRadius: '9999px',
-  border: 'none' as const,
-  fontSize: '0.9rem',
-  fontWeight: 600,
-  backgroundColor: '#2563EB',
-  color: '#ffffff',
-  cursor: 'pointer' as const,
-  boxShadow: '0 8px 22px rgba(37, 99, 235, 0.35)',
-};
+const fontStyle = { fontFamily: 'var(--font-poppins), Poppins, sans-serif' };
+const inputClass =
+  'w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] bg-white text-[#101827] text-base outline-none focus:border-[#008BFF] focus:ring-2 focus:ring-[#008BFF]/20';
 
 export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
   const router = useRouter();
@@ -106,6 +80,12 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
     }
   }
 
+  async function handleLogOut() {
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  }
+
   async function handleDeleteAccount() {
     if (!window.confirm(DELETE_CONFIRM)) return;
     setDeleteError(null);
@@ -130,230 +110,188 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
 
   return (
     <PageWrapper>
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#F1F5F9',
-        padding: '1.5rem 1.25rem 2.5rem',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          margin: '0 auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.25rem',
-        }}
-      >
-        <Link
-          href="/dashboard"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            color: '#64748B',
-            fontSize: '0.9rem',
-            textDecoration: 'none',
-            alignSelf: 'flex-start',
-          }}
-        >
-          <span style={{ fontSize: '1.1rem' }}>←</span>
-          <span>Back to dashboard</span>
-        </Link>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.75rem',
-          }}
-        >
-          <h1
-            style={{
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: '#0F172A',
-              margin: 0,
-            }}
-          >
-            Settings
-          </h1>
-          {isAdmin && (
+      <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
+        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-3">
             <Link
-              href="/housekeeping"
-              style={{
-                fontSize: '0.85rem',
-                color: '#64748B',
-                textDecoration: 'none',
-                padding: '0.35rem 0.7rem',
-                borderRadius: '9999px',
-                border: '1px solid #E2E8F0',
-                backgroundColor: '#ffffff',
-              }}
+              href="/dashboard"
+              className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+              aria-label="Back to dashboard"
             >
-              Housekeeping
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
             </Link>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-full bg-[#E0F2FE] flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
+              </div>
+              <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
+                Settings
+              </h1>
+            </div>
+          </div>
+        </header>
 
-        {/* Change Email */}
-        <div style={CARD_STYLE}>
-          <h2
-            style={{
-              fontSize: '1.05rem',
-              fontWeight: 600,
-              color: '#0F172A',
-              marginBottom: '0.75rem',
-            }}
-          >
-            Change Email
-          </h2>
-          <form onSubmit={handleUpdateEmail} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={INPUT_STYLE}
-              placeholder="Email address"
-            />
-            <button
-              type="submit"
-              disabled={emailLoading}
-              style={{
-                ...PRIMARY_BUTTON,
-                alignSelf: 'flex-start',
-                backgroundColor: emailLoading ? '#94A3B8' : '#2563EB',
-                cursor: emailLoading ? 'default' : 'pointer',
-              }}
-            >
-              {emailLoading ? 'Updating…' : 'Update Email'}
-            </button>
-            {emailMessage && (
-              <p
-                style={{
-                  fontSize: '0.9rem',
-                  margin: 0,
-                  color: emailMessage.type === 'error' ? '#B91C1C' : '#15803D',
-                }}
+        <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full flex flex-col gap-6">
+          {/* Change Email */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-[#0F172A] mb-4" style={fontStyle}>
+              Change Email
+            </h2>
+            <form onSubmit={handleUpdateEmail} className="flex flex-col gap-4">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className={inputClass}
+                style={fontStyle}
+                placeholder="Email address"
+              />
+              <button
+                type="submit"
+                disabled={emailLoading}
+                className="w-full py-3 rounded-lg bg-[#008bff] text-white font-medium text-base hover:bg-[#0077e6] disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+                style={{ ...fontStyle, color: '#ffffff' }}
               >
-                {emailMessage.text}
-              </p>
-            )}
-          </form>
-        </div>
+                {emailLoading ? 'Updating…' : 'Update Email'}
+              </button>
+              {emailMessage && (
+                <p
+                  className={`text-sm ${emailMessage.type === 'error' ? 'text-red-600' : 'text-green-600'}`}
+                  style={fontStyle}
+                >
+                  {emailMessage.text}
+                </p>
+              )}
+            </form>
+          </div>
 
-        {/* Change Password */}
-        <div style={CARD_STYLE}>
-          <h2
-            style={{
-              fontSize: '1.05rem',
-              fontWeight: 600,
-              color: '#0F172A',
-              marginBottom: '0.75rem',
-            }}
-          >
-            Change Password
-          </h2>
-          <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password"
-              minLength={6}
-              style={INPUT_STYLE}
-            />
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              minLength={6}
-              style={INPUT_STYLE}
-            />
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              style={{
-                ...PRIMARY_BUTTON,
-                alignSelf: 'flex-start',
-                backgroundColor: passwordLoading ? '#94A3B8' : '#2563EB',
-                cursor: passwordLoading ? 'default' : 'pointer',
-              }}
-            >
-              {passwordLoading ? 'Updating…' : 'Update Password'}
-            </button>
-            {passwordMessage && (
-              <p
-                style={{
-                  fontSize: '0.9rem',
-                  margin: 0,
-                  color: passwordMessage.type === 'error' ? '#B91C1C' : '#15803D',
-                }}
+          {/* Change Password */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-[#0F172A] mb-4" style={fontStyle}>
+              Change Password
+            </h2>
+            <form onSubmit={handleUpdatePassword} className="flex flex-col gap-4">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password"
+                minLength={6}
+                className={inputClass}
+                style={fontStyle}
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                minLength={6}
+                className={inputClass}
+                style={fontStyle}
+              />
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="w-full py-3 rounded-lg bg-[#008bff] text-white font-medium text-base hover:bg-[#0077e6] disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+                style={{ ...fontStyle, color: '#ffffff' }}
               >
-                {passwordMessage.text}
-              </p>
-            )}
-          </form>
-        </div>
+                {passwordLoading ? 'Updating…' : 'Update Password'}
+              </button>
+              {passwordMessage && (
+                <p
+                  className={`text-sm ${passwordMessage.type === 'error' ? 'text-red-600' : 'text-green-600'}`}
+                  style={fontStyle}
+                >
+                  {passwordMessage.text}
+                </p>
+              )}
+            </form>
+          </div>
 
-        {/* Delete Account */}
-        <div style={CARD_STYLE}>
-          <h2
-            style={{
-              fontSize: '1.05rem',
-              fontWeight: 600,
-              color: '#0F172A',
-              marginBottom: '0.5rem',
-            }}
-          >
-            Delete Account
-          </h2>
-          <p
-            style={{
-              fontSize: '0.9rem',
-              color: '#64748B',
-              marginBottom: '1rem',
-            }}
-          >
-            Permanently delete your account and all associated data.
-          </p>
-          <button
-            type="button"
-            onClick={handleDeleteAccount}
-            disabled={deleteLoading}
-            style={{
-              padding: '0.7rem 1.1rem',
-              borderRadius: '9999px',
-              border: '1px solid #FCA5A5',
-              backgroundColor: deleteLoading ? '#94A3B8' : '#FEF2F2',
-              color: deleteLoading ? '#ffffff' : '#B91C1C',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              cursor: deleteLoading ? 'default' : 'pointer',
-            }}
-          >
-            {deleteLoading ? 'Deleting…' : 'Delete Account'}
-          </button>
-          {deleteError && (
-            <p
-              style={{
-                fontSize: '0.9rem',
-                marginTop: '0.75rem',
-                marginBottom: 0,
-                color: '#B91C1C',
-              }}
-            >
-              {deleteError}
+          {/* Log Out */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-[#0F172A] mb-2" style={fontStyle}>
+              Log Out
+            </h2>
+            <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
+              Sign out of your account on this device.
             </p>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={handleLogOut}
+              className="w-full py-3 rounded-lg border border-gray-200 text-gray-700 font-medium text-base hover:bg-gray-50 transition-colors"
+              style={fontStyle}
+            >
+              Log Out
+            </button>
+          </div>
+
+          {/* Delete Account */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-[#0F172A] mb-2" style={fontStyle}>
+              Delete Account
+            </h2>
+            <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
+              Permanently delete your account and all associated data.
+            </p>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={deleteLoading}
+              className="w-full py-3 rounded-lg bg-red-500 text-white font-medium text-base hover:bg-red-600 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+              style={{ ...fontStyle, color: '#ffffff' }}
+            >
+              {deleteLoading ? 'Deleting…' : 'Delete Account'}
+            </button>
+            {deleteError && (
+              <p className="text-sm text-red-600 mt-3" style={fontStyle}>
+                {deleteError}
+              </p>
+            )}
+          </div>
+        </main>
+
+        {/* Bottom navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
+          <div className="flex justify-around max-w-[720px] mx-auto">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+              <span className="text-xs font-medium" style={fontStyle}>Home</span>
+            </Link>
+            <Link href="/properties" className="flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              <span className="text-xs font-medium" style={fontStyle}>Properties</span>
+            </Link>
+            <Link href="/settings" className="flex flex-col items-center gap-1 py-1 text-[#008bff]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+              </svg>
+              <span className="text-xs font-medium" style={fontStyle}>Settings</span>
+            </Link>
+            <button type="button" className="flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span className="text-xs font-medium" style={fontStyle}>Help</span>
+            </button>
+          </div>
+        </nav>
       </div>
-    </div>
     </PageWrapper>
   );
 }
