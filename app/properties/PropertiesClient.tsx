@@ -3,8 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
+import PageWrapper from "@/components/PageWrapper";
+
+const fadeScaleTransition = {
+  initial: { opacity: 0, scale: 0.98 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.98 },
+  transition: { duration: 0.2, ease: "easeInOut" as const },
+};
 
 type Property = {
   id: string | number;
@@ -46,27 +55,80 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
   const router = useRouter();
   const supabase = createClient();
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleDelete(property: Property, e: React.MouseEvent) {
+  function openDeleteConfirmModal(property: Property, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this property? This will delete all rooms and photos. This cannot be undone.")) return;
     setError(null);
-    setDeletingId(property.id);
+    setPropertyToDelete(property);
+  }
+
+  async function confirmDeleteProperty() {
+    if (!propertyToDelete) return;
+    const propertyId = propertyToDelete.id;
+    setPropertyToDelete(null);
+    setError(null);
+    setDeletingId(propertyId);
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be signed in to delete a property.");
+        setDeletingId(null);
+        return;
+      }
+
+      const { data: photos } = await supabase
+        .from("photos")
+        .select("storage_path")
+        .eq("property_id", propertyId)
+        .eq("user_id", user.id);
+      const photoPaths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
+      if (photoPaths.length > 0) {
+        await supabase.storage.from("photos").remove(photoPaths);
+      }
+
+      const { data: reports } = await supabase
+        .from("reports")
+        .select("storage_path")
+        .eq("property_id", propertyId)
+        .eq("user_id", user.id);
+      const reportPaths = (reports ?? []).map((r) => r.storage_path).filter(Boolean);
+      if (reportPaths.length > 0) {
+        await supabase.storage.from("reports").remove(reportPaths);
+      }
+
+      await supabase
+        .from("photos")
+        .delete()
+        .eq("property_id", propertyId)
+        .eq("user_id", user.id);
+      await supabase
+        .from("reports")
+        .delete()
+        .eq("property_id", propertyId)
+        .eq("user_id", user.id);
+      await supabase.from("rooms").delete().eq("property_id", propertyId);
+
       const { error: deleteError } = await supabase
         .from("properties")
         .delete()
-        .eq("id", property.id);
+        .eq("id", propertyId)
+        .eq("user_id", user.id);
+
       if (deleteError) {
-        setError(deleteError.message ?? "Unable to delete.");
+        setError(deleteError.message ?? "Unable to delete property.");
+        setDeletingId(null);
         return;
       }
+
       router.refresh();
     } catch {
-      setError("Something went wrong.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -75,6 +137,7 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 
   return (
+    <PageWrapper>
     <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
@@ -151,7 +214,7 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
               >
                 <button
                   type="button"
-                  onClick={(e) => handleDelete(property, e)}
+                  onClick={(e) => openDeleteConfirmModal(property, e)}
                   disabled={deletingId === property.id}
                   className="absolute top-4 right-4 p-1.5 text-red-500 hover:bg-red-50 rounded-lg z-10"
                   aria-label="Delete"
@@ -205,6 +268,63 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
         )}
       </main>
 
+      {/* Delete property confirmation modal */}
+      <AnimatePresence>
+        {propertyToDelete && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !deletingId && setPropertyToDelete(null)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
+              <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+                Delete Property
+              </h2>
+              <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+                Are you sure you want to delete this property? All associated reports and photos will also be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPropertyToDelete(null)}
+                  disabled={!!deletingId}
+                  className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteProperty}
+                  disabled={!!deletingId}
+                  className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  Yes, Delete Property
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ReportFlowModal
         isOpen={showCreatePropertyModal}
         onClose={() => setShowCreatePropertyModal(false)}
@@ -221,7 +341,7 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
       />
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
         <div className="flex justify-around max-w-[720px] mx-auto">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -255,5 +375,6 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
         </div>
       </nav>
     </div>
+    </PageWrapper>
   );
 }

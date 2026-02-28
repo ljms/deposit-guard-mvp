@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import PageWrapper from "@/components/PageWrapper";
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -253,6 +254,7 @@ export function PropertyDetailClient({
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 
   return (
+    <PageWrapper>
     <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
@@ -544,7 +546,7 @@ export function PropertyDetailClient({
       )}
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
         <div className="flex justify-around max-w-[720px] mx-auto">
           <Link href="/dashboard" className="flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -578,5 +580,6 @@ export function PropertyDetailClient({
         </div>
       </nav>
     </div>
+    </PageWrapper>
   );
 }

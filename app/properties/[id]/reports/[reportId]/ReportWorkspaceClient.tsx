@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import * as exifr from "exifr";
 import { createClient } from "@/lib/supabase/client";
+import PageWrapper from "@/components/PageWrapper";
 
 type Property = {
   id: string | number;
@@ -534,6 +535,7 @@ export function ReportWorkspaceClient({
   const isLocked = Boolean(property.is_locked);
 
   return (
+    <PageWrapper>
     <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-24">
       <input
         ref={fileInputRef}
@@ -721,7 +723,7 @@ export function ReportWorkspaceClient({
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-pb">
+      <div className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 p-4 safe-area-pb">
         <div className="max-w-[720px] mx-auto">
           {isLocked ? (
             <button
@@ -751,5 +753,6 @@ export function ReportWorkspaceClient({
         </div>
       </div>
     </div>
+    </PageWrapper>
   );
 }

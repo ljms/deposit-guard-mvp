@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import PageWrapper from '@/components/PageWrapper';
 
 type SettingsClientProps = {
   initialEmail: string;
@@ -128,6 +129,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
   }
 
   return (
+    <PageWrapper>
     <div
       style={{
         minHeight: '100vh',
@@ -352,5 +354,6 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
         </div>
       </div>
     </div>
+    </PageWrapper>
   );
 }

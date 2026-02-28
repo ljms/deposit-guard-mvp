@@ -26,10 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${poppins.variable} antialiased`}
+        className={`${inter.variable} ${poppins.variable} antialiased min-h-screen bg-[#F8F8F8]`}
         suppressHydrationWarning={true}
       >
-        {children}
+        <div className="min-h-screen w-full lg:max-w-[1080px] lg:mx-auto bg-[#F8F8F8]">
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { toTitleCase, formatPostcode } from "@/lib/format";
 
 type ReportStep =
   | "select-property"
@@ -246,10 +247,10 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         .from("properties")
         .insert({
           user_id: user.id,
-          address_line1: addressLine1.trim(),
+          address_line1: toTitleCase(addressLine1.trim()),
           address_line2: null,
-          city: city.trim() || null,
-          postcode: postcode.trim() || null,
+          city: city.trim() ? toTitleCase(city.trim()) : null,
+          postcode: formatPostcode(postcode),
           move_in_date: moveInDate.trim(),
           property_type: propertyType,
         })
@@ -292,10 +293,10 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
       const newPropertyDetail: PropertyDetail = {
         id: propertyId,
-        address_line1: addressLine1.trim(),
+        address_line1: toTitleCase(addressLine1.trim()),
         address_line2: null,
-        city: city.trim() || null,
-        postcode: postcode.trim() || null,
+        city: city.trim() ? toTitleCase(city.trim()) : null,
+        postcode: formatPostcode(postcode),
         property_type: propertyType,
       };
 

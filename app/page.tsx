@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { toTitleCase } from "@/lib/format";
 
 type AuthScreen = "login" | "signup" | "verify" | "welcome" | "forgotPassword";
 
@@ -120,7 +121,7 @@ export default function HomePage() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: name.trim() || undefined } },
+        options: { data: { full_name: (name.trim() && toTitleCase(name.trim())) || undefined } },
       });
       if (signUpError) {
         setError(signUpError.message || "Unable to create your account. Please try again.");

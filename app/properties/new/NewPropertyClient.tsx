@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { toTitleCase, formatPostcode } from '@/lib/format';
 
 export function NewPropertyClient() {
   const router = useRouter();
@@ -67,10 +68,10 @@ export function NewPropertyClient() {
 
       const { error: insertError } = await supabase.from('properties').insert({
         user_id: user.id,
-        address_line1: addressLine1.trim(),
+        address_line1: toTitleCase(addressLine1.trim()),
         address_line2: addressLine2.trim() || null,
-        city: city.trim(),
-        postcode: postcode.trim(),
+        city: toTitleCase(city.trim()),
+        postcode: formatPostcode(postcode),
         property_type: propertyType,
       });
 

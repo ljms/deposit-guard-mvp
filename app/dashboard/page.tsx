@@ -12,16 +12,28 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const { data: properties } = await supabase
+  const { data: properties, error: propertiesError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, is_locked, report_type, created_at")
+    .select("id, address_line1, address_line2, city, postcode, is_locked, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const { data: reports } = await supabase
+  // Fetch ALL reports (in_progress and completed) for the user — no status filter
+  const { data: reports, error: reportsError } = await supabase
     .from("reports")
-    .select("id, property_id, storage_path, created_at, status")
-    .eq("user_id", user.id);
+    .select("id, property_id, storage_path, created_at, status, report_type")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  // Debug: log what Supabase returned
+  console.log("[dashboard/page.tsx] (1) Raw reports from Supabase:", JSON.stringify(reports ?? [], null, 2));
+  console.log("[dashboard/page.tsx] (2) Properties array:", JSON.stringify(properties ?? [], null, 2));
+  if (propertiesError) {
+    console.error("[dashboard/page.tsx] Properties Supabase error:", propertiesError.message, propertiesError);
+  }
+  if (reportsError) {
+    console.error("[dashboard/page.tsx] Reports Supabase error:", reportsError.message, reportsError);
+  }
 
   // Get room counts (bedrooms, bathrooms) and photo counts per property
   const propertyIds = (properties ?? []).map((p) => p.id);
