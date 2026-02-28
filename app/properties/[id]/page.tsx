@@ -20,7 +20,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, property_type, is_locked, move_in_date")
+    .select("id, address_line1, address_line2, city, postcode, property_type, move_in_date")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -46,7 +46,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const { data: reports } = await supabase
     .from("reports")
     .select("id, property_id, storage_path, created_at, status, report_type")
-    .eq("property_id", property.id)
+    .eq("property_id", id)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

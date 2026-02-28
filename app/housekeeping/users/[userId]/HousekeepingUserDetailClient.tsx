@@ -155,7 +155,7 @@ export function HousekeepingUserDetailClient({ user, properties }: Props) {
                           }}
                         >
                           {property.property_type || "Unknown type"} ·{" "}
-                          {property.is_locked ? "Locked" : "Unlocked"}
+                          {property.hasCompletedReport ? "Has completed report" : "No completed report"}
                         </p>
                         <p
                           style={{

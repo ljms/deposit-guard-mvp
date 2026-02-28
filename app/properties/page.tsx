@@ -24,7 +24,7 @@ export default async function PropertiesPage() {
 
   const { data: properties, error: propertiesError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, property_type, is_locked, move_in_date")
+    .select("id, address_line1, address_line2, city, postcode, property_type, move_in_date")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

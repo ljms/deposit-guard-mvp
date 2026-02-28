@@ -23,8 +23,6 @@ type Property = {
   address_line2: string | null;
   city: string | null;
   postcode: string | null;
-  is_locked?: boolean | null;
-  report_type?: string | null;
   created_at?: string | null;
 };
 
@@ -120,7 +118,7 @@ export function DashboardClient({
         roomCount,
         photoCount,
         date,
-        reportType: report.report_type ?? property.report_type,
+        reportType: report.report_type,
       };
     })
     .filter(Boolean) as Array<{

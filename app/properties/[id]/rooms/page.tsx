@@ -20,7 +20,7 @@ export default async function RoomsPage({ params }: RoomsPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, property_type, is_locked")
+    .select("id, address_line1, address_line2, city, postcode, property_type")
     .eq("id", id)
     .single();
 
@@ -40,12 +40,23 @@ export default async function RoomsPage({ params }: RoomsPageProps) {
     .select("id", { count: "exact", head: true })
     .eq("property_id", property.id);
 
+  const { data: reports } = await supabase
+    .from("reports")
+    .select("status, storage_path")
+    .eq("property_id", id)
+    .eq("user_id", user.id);
+
+  const hasCompletedReport = (reports ?? []).some(
+    (r) => r.status === "completed" || Boolean(r.storage_path)
+  );
+
   return (
     <RoomsClient
       userId={user.id}
       property={property}
       initialRooms={rooms ?? []}
       totalPhotoCount={totalPhotoCount ?? 0}
+      initialIsLocked={hasCompletedReport}
     />
   );
 }

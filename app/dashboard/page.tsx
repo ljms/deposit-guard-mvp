@@ -14,7 +14,7 @@ export default async function DashboardPage() {
 
   const { data: properties, error: propertiesError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, is_locked, created_at")
+    .select("id, address_line1, address_line2, city, postcode, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

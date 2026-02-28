@@ -112,24 +112,6 @@ export async function POST(
     );
   }
 
-  if (report.property_id) {
-    const { error: unlockError } = await admin
-      .from("properties")
-      .update({ is_locked: false })
-      .eq("id", report.property_id);
-    // eslint-disable-next-line no-console
-    console.log("[housekeeping/delete-report] Property unlock result", {
-      propertyId: report.property_id,
-      unlockError,
-    });
-    if (unlockError) {
-      return NextResponse.json(
-        { message: "Failed to unlock property after deleting report" },
-        { status: 500 }
-      );
-    }
-  }
-
   // eslint-disable-next-line no-console
   console.log("[housekeeping/delete-report] Success", { reportId });
   return NextResponse.json({ success: true });

@@ -37,7 +37,6 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  is_locked?: boolean | null;
 };
 
 type PhotoRow = {
@@ -53,6 +52,7 @@ type RoomsClientProps = {
   property: Property;
   initialRooms: RoomRow[];
   totalPhotoCount: number;
+  initialIsLocked: boolean;
 };
 
 const ROOM_TYPES: { label: string; value: RoomType }[] = [
@@ -70,7 +70,7 @@ const ROOM_TYPES: { label: string; value: RoomType }[] = [
   { label: 'Custom', value: 'Custom' },
 ];
 
-export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }: RoomsClientProps) {
+export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, initialIsLocked }: RoomsClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -81,7 +81,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
   const [loading, setLoading] = useState(false);
   const [reportGenerating, setReportGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLocked, setIsLocked] = useState(Boolean(property.is_locked));
+  const [isLocked, setIsLocked] = useState(initialIsLocked);
 
   const currentCount = rooms.length;
 
@@ -593,14 +593,6 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount }:
       });
       if (insertError) {
         throw new Error(insertError.message || 'Failed to save report record.');
-      }
-
-      const { error: lockError } = await supabase
-        .from('properties')
-        .update({ is_locked: true })
-        .eq('id', property.id);
-      if (lockError) {
-        throw new Error(lockError.message || 'Failed to lock property.');
       }
 
       setIsLocked(true);

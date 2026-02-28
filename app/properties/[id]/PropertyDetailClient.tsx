@@ -21,9 +21,7 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  is_locked?: boolean | null;
   move_in_date?: string | null;
-  report_type?: string | null;
 };
 
 type Report = {
@@ -107,13 +105,18 @@ export function PropertyDetailClient({
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isInProgress = !property.is_locked;
-  const inProgressReport = reports.find((r) => (r as Report).status === "in_progress") as Report | undefined;
-  const hasReports = reports.length > 0 || isInProgress;
+  const propertyIdStr = String(property.id);
+  const reportsForThisProperty = reports.filter(
+    (r) => String((r as Report).property_id) === propertyIdStr
+  );
+  const inProgressReport = reportsForThisProperty.find(
+    (r) => (r as Report).status === "in_progress"
+  ) as Report | undefined;
+  const hasReports = reportsForThisProperty.length > 0;
 
   async function handleCreateNewReportClick() {
     setError(null);
-    if (isInProgress) {
+    if (inProgressReport) {
       setError(
         "You already have a report in progress for this property. Please complete or delete it before creating a new one."
       );
@@ -149,18 +152,6 @@ export function PropertyDetailClient({
 
       if (insertError || !newReport) {
         setError(insertError?.message ?? "Failed to create report.");
-        setCreateReportLoading(false);
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from("properties")
-        .update({ is_locked: false })
-        .eq("id", property.id)
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        setError(updateError.message ?? "Failed to start report.");
         setCreateReportLoading(false);
         return;
       }
@@ -218,18 +209,6 @@ export function PropertyDetailClient({
         .eq("property_id", property.id)
         .eq("user_id", user.id)
         .eq("status", "in_progress");
-
-      const { error: updateError } = await supabase
-        .from("properties")
-        .update({ is_locked: true })
-        .eq("id", property.id)
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        setError(updateError.message ?? "Failed to delete report.");
-        setDeletingInProgress(false);
-        return;
-      }
 
       router.refresh();
     } catch {
@@ -361,7 +340,7 @@ export function PropertyDetailClient({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {isInProgress && (
+            {inProgressReport && (
               <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative">
                 <button
                   type="button"
@@ -385,13 +364,13 @@ export function PropertyDetailClient({
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-1" style={fontStyle}>
-                    {getReportTypeLabel(inProgressReport?.report_type ?? undefined)}
+                    {getReportTypeLabel((inProgressReport as Report).report_type)}
                   </p>
                   <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
                     {photoCount} Photos • Started
                   </p>
                   <Link
-                    href={`/properties/${property.id}/reports/${inProgressReport?.id ?? property.id}`}
+                    href={`/properties/${property.id}/reports/${inProgressReport.id}`}
                     className="block w-full py-2.5 rounded-lg bg-[#008bff] text-white text-center font-medium text-sm hover:bg-[#0077e6]"
                     style={{ ...fontStyle, color: "#ffffff" }}
                   >
@@ -401,7 +380,7 @@ export function PropertyDetailClient({
               </div>
             )}
 
-            {reports
+            {reportsForThisProperty
               .filter((r) => (r as Report).status === "completed" || (r as Report).storage_path)
               .map((report) => {
                 const hasStoragePath = Boolean((report as Report).storage_path);

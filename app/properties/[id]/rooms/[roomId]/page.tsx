@@ -20,7 +20,7 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, is_locked")
+    .select("id, address_line1, address_line2, city, postcode")
     .eq("id", propertyId)
     .single();
 
@@ -48,12 +48,22 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
     .eq("user_id", user.id)
     .order("taken_at", { ascending: false });
 
+  const { data: reports } = await supabase
+    .from("reports")
+    .select("status, storage_path")
+    .eq("property_id", propertyId)
+    .eq("user_id", user.id);
+
+  const hasCompletedReport = (reports ?? []).some(
+    (r) => r.status === "completed" || Boolean(r.storage_path)
+  );
+
   return (
     <RoomDetailClient
       userId={user.id}
       property={property}
       room={room}
-      isLocked={Boolean(property.is_locked)}
+      isLocked={hasCompletedReport}
       initialPhotos={photos ?? []}
     />
   );

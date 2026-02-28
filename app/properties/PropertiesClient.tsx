@@ -22,7 +22,6 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  is_locked?: boolean | null;
   move_in_date?: string | null;
 };
 
@@ -193,16 +192,17 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
               No properties yet
             </h2>
             <p className="text-sm text-gray-500 text-center mb-6 max-w-[280px]" style={fontStyle}>
-              Create your first report to start documenting your rental.
+              Add your first property to start documenting your rental.
             </p>
-            <Link
-              href="/dashboard?newReport=1"
+            <button
+              type="button"
+              onClick={() => setShowCreatePropertyModal(true)}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#008bff] text-white font-semibold text-base shadow-sm hover:bg-[#0077e6] transition-colors"
               style={{ ...fontStyle, color: "#ffffff" }}
             >
               <span className="text-xl leading-none">＋</span>
-              Create New Report
-            </Link>
+              Create New Property
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-4">

@@ -20,7 +20,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, property_type, is_locked, move_in_date")
+    .select("id, address_line1, address_line2, city, postcode, property_type, move_in_date")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -31,7 +31,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status")
+    .select("id, property_id, status, storage_path")
     .eq("id", reportId)
     .eq("user_id", user.id)
     .single();
@@ -39,6 +39,8 @@ export default async function ReportPage({ params }: ReportPageProps) {
   if (reportError || !report || String(report.property_id) !== String(id)) {
     notFound();
   }
+
+  const isReportCompleted = report.status === "completed" || Boolean(report.storage_path);
 
   const { data: rooms } = await supabase
     .from("rooms")
@@ -59,6 +61,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
       userId={user.id}
       reportId={reportId}
       property={property}
+      reportCompleted={isReportCompleted}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
     />

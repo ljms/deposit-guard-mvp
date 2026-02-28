@@ -15,7 +15,6 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  is_locked?: boolean | null;
   move_in_date?: string | null;
 };
 
@@ -36,6 +35,7 @@ type ReportWorkspaceClientProps = {
   userId: string;
   reportId: string;
   property: Property;
+  reportCompleted: boolean;
   rooms: Room[];
   photosData: Photo[];
 };
@@ -64,6 +64,7 @@ export function ReportWorkspaceClient({
   userId,
   reportId,
   property,
+  reportCompleted: initialReportCompleted,
   rooms: initialRooms,
   photosData,
 }: ReportWorkspaceClientProps) {
@@ -483,7 +484,7 @@ export function ReportWorkspaceClient({
 
       if (updateError) throw new Error(updateError.message ?? "Failed to update report.");
 
-      await supabase.from("properties").update({ is_locked: true }).eq("id", property.id);
+      setReportCompleted(true);
 
       const safeAddress = (property.address_line1 || "Property")
         .replace(/[^a-zA-Z0-9\s-]/g, "")
@@ -532,7 +533,8 @@ export function ReportWorkspaceClient({
   }
 
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
-  const isLocked = Boolean(property.is_locked);
+  const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
+  const isLocked = reportCompleted;
 
   return (
     <PageWrapper>

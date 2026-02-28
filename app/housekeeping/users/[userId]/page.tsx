@@ -15,7 +15,7 @@ export type Property = {
   city: string | null;
   postcode: string | null;
   property_type: string | null;
-  is_locked: boolean | null;
+  hasCompletedReport: boolean;
   created_at: string;
   reports: Report[];
 };
@@ -34,9 +34,7 @@ async function getUserData(userId: string) {
   const [{ data: propertiesData }, { data: reportsData }] = await Promise.all([
     admin
       .from("properties")
-      .select(
-        "id, address_line1, address_line2, city, postcode, property_type, is_locked, created_at"
-      )
+      .select("id, address_line1, address_line2, city, postcode, property_type, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     admin
@@ -60,17 +58,21 @@ async function getUserData(userId: string) {
     reportsByProperty.set(r.property_id, list);
   });
 
-  const propertiesWithReports: Property[] = properties.map((p: any) => ({
-    id: p.id,
-    address_line1: p.address_line1,
-    address_line2: p.address_line2,
-    city: p.city,
-    postcode: p.postcode,
-    property_type: p.property_type,
-    is_locked: p.is_locked,
-    created_at: p.created_at,
-    reports: reportsByProperty.get(p.id) ?? [],
-  }));
+  const propertiesWithReports: Property[] = properties.map((p: any) => {
+    const propReports = reportsByProperty.get(p.id) ?? [];
+    const hasCompletedReport = propReports.some((r: any) => Boolean(r.storage_path));
+    return {
+      id: p.id,
+      address_line1: p.address_line1,
+      address_line2: p.address_line2,
+      city: p.city,
+      postcode: p.postcode,
+      property_type: p.property_type,
+      hasCompletedReport,
+      created_at: p.created_at,
+      reports: propReports,
+    };
+  });
 
   return {
     user: {
