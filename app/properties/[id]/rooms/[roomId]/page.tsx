@@ -15,7 +15,7 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const { data: property, error: propertyError } = await supabase

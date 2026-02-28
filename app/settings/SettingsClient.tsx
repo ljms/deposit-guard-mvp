@@ -118,7 +118,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
         return;
       }
       await supabase.auth.signOut();
-      router.push('/signup');
+      router.push('/');
       router.refresh();
     } catch {
       setDeleteError('Something went wrong. Please try again.');

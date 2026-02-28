@@ -25,7 +25,7 @@ export function LogoutButton({ label = 'Log out' }: LogoutButtonProps) {
         return;
       }
 
-      router.push('/login');
+      router.push('/');
       router.refresh();
     } catch (err) {
       setError('Something went wrong while logging you out. Please try again.');

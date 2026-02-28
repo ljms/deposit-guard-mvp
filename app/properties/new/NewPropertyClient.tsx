@@ -55,7 +55,7 @@ export function NewPropertyClient() {
       }
 
       if (!user) {
-        router.push('/login');
+        router.push('/');
         return;
       }
 

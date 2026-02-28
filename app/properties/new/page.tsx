@@ -9,7 +9,7 @@ export default async function NewPropertyPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   return <NewPropertyClient />;
