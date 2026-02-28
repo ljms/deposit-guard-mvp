@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import PageWrapper from "@/components/PageWrapper";
@@ -91,9 +91,17 @@ export function PropertyDetailClient({
   photoCount,
 }: PropertyDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [showReportTypeModal, setShowReportTypeModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("newReport") === "true") {
+      setShowReportTypeModal(true);
+      router.replace(`/properties/${property.id}`, { scroll: false });
+    }
+  }, [searchParams, property.id, router]);
   const [createReportLoading, setCreateReportLoading] = useState(false);
   const [deletingInProgress, setDeletingInProgress] = useState(false);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);

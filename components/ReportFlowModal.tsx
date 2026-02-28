@@ -100,11 +100,13 @@ type ReportFlowModalProps = {
   onClose: () => void;
   onComplete: () => void;
   onPropertyCreated?: (propertyId: string | number) => void;
+  /** When provided, selecting an existing property closes the modal and calls this instead of continuing to property-details. */
+  onPropertySelected?: (propertyId: string | number) => void;
   /** When true, open directly at the create-property step (skip property selection). */
   startAtCreateProperty?: boolean;
 };
 
-export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated, startAtCreateProperty }: ReportFlowModalProps) {
+export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated, onPropertySelected, startAtCreateProperty }: ReportFlowModalProps) {
   const supabase = createClient();
   const [step, setStep] = useState<ReportStep>("select-property");
   const [loading, setLoading] = useState(true);
@@ -184,6 +186,11 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   }, [isOpen]);
 
   const selectExistingProperty = (property: Property) => {
+    if (onPropertySelected) {
+      onPropertySelected(property.id);
+      onClose();
+      return;
+    }
     setSelectedPropertyId(property.id);
     setStep("property-details");
   };

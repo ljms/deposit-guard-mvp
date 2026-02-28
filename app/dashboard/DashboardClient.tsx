@@ -497,9 +497,14 @@ export function DashboardClient({
           setShowReportModal(false);
           router.refresh();
         }}
+        onPropertySelected={(propertyId) => {
+          setShowReportModal(false);
+          router.push(`/properties/${propertyId}?newReport=true`);
+          router.refresh();
+        }}
         onPropertyCreated={(propertyId) => {
           setShowReportModal(false);
-          router.push(`/properties/${propertyId}`);
+          router.push(`/properties/${propertyId}?newReport=true`);
           router.refresh();
         }}
       />
