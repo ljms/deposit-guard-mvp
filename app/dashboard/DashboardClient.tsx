@@ -552,7 +552,8 @@ export function DashboardClient({
         <div className="flex items-center justify-around max-w-[720px] mx-auto">
           <Link
             href="/dashboard"
-            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-[#008bff]"
+            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-[#008bff]"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
@@ -562,7 +563,8 @@ export function DashboardClient({
           </Link>
           <Link
             href="/properties"
-            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-gray-400"
+            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -572,7 +574,8 @@ export function DashboardClient({
           </Link>
           <Link
             href="/settings"
-            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-gray-400"
+            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />
@@ -582,7 +585,8 @@ export function DashboardClient({
           </Link>
           <button
             type="button"
-            className="flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default"
+            className="active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
