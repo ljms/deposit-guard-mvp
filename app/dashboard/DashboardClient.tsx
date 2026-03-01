@@ -552,7 +552,7 @@ export function DashboardClient({
         <div className="flex items-center justify-around max-w-[720px] mx-auto">
           <Link
             href="/dashboard"
-            className="flex flex-col items-center gap-1 py-1 text-[#008bff]"
+            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-[#008bff]"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
@@ -562,7 +562,7 @@ export function DashboardClient({
           </Link>
           <Link
             href="/properties"
-            className="flex flex-col items-center gap-1 py-1 text-gray-400"
+            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-gray-400"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -572,7 +572,7 @@ export function DashboardClient({
           </Link>
           <Link
             href="/settings"
-            className="flex flex-col items-center gap-1 py-1 text-gray-400"
+            className="tap-feedback-touch flex flex-col items-center gap-1 py-1 text-gray-400"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />

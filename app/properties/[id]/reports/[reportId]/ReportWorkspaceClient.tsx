@@ -983,7 +983,7 @@ export function ReportWorkspaceClient({
         <div className="flex items-center gap-3">
           <Link
             href={`/properties/${property.id}`}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+            className="tap-feedback-touch p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
             aria-label="Back to property"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

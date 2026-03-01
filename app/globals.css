@@ -57,3 +57,13 @@ input[type="checkbox"] {
     opacity: 0.75;
   }
 }
+
+/* Explicit tap feedback for nav and back buttons (touch devices only) */
+.tap-feedback-touch {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: none) and (pointer: coarse) {
+  .tap-feedback-touch:active {
+    opacity: 0.75;
+  }
+}
