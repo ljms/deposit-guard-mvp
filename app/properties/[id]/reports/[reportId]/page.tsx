@@ -31,7 +31,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status, storage_path")
+    .select("id, property_id, status, storage_path, report_type")
     .eq("id", reportId)
     .eq("user_id", user.id)
     .single();
@@ -51,7 +51,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: photosData } = await supabase
     .from("photos")
-    .select("id, storage_path, room_id")
+    .select("id, storage_path, room_id, note")
     .eq("property_id", property.id)
     .eq("user_id", user.id)
     .order("taken_at", { ascending: false });
@@ -62,6 +62,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
       reportId={reportId}
       property={property}
       reportCompleted={isReportCompleted}
+      reportType={report?.report_type ?? null}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
     />

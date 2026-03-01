@@ -69,6 +69,20 @@ const ROOM_TYPES = [
   "Custom",
 ] as const;
 
+const ADD_ROOM_TYPES = [
+  "Living Room",
+  "Kitchen",
+  "Bedroom",
+  "Bathroom",
+  "Ensuite",
+  "Hallway",
+  "Garden",
+  "Balcony",
+  "Storage",
+  "Utility",
+  "Custom",
+] as const;
+
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 
 const inputClass =
@@ -134,6 +148,17 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeCameraRoomId, setActiveCameraRoomId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [photoStep, setPhotoStep] = useState<"idle" | "preview">("idle");
+  const [photoNote, setPhotoNote] = useState("");
+  const [previewRoomId, setPreviewRoomId] = useState<string | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
+  const [addRoomModalOpen, setAddRoomModalOpen] = useState(false);
+  const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
+  const [addRoomCustomName, setAddRoomCustomName] = useState("");
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomName, setEditingRoomName] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -182,6 +207,17 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       setRoomComplete({});
       setRoomCompleteError(null);
       setDetailsError(null);
+      setPreviewFile(null);
+      setPreviewDataUrl(null);
+      setPhotoStep("idle");
+      setPhotoNote("");
+      setPreviewRoomId(null);
+      setRoomToDelete(null);
+      setAddRoomModalOpen(false);
+      setAddRoomSelectedType(null);
+      setAddRoomCustomName("");
+      setEditingRoomId(null);
+      setEditingRoomName("");
     }
   }, [isOpen]);
 
@@ -415,7 +451,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     fileInputRef.current?.click();
   };
 
-  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const roomId = activeCameraRoomId;
     if (!roomId || !selectedPropertyId) return;
     const file = e.target.files?.[0];
@@ -424,27 +460,48 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       e.target.value = "";
       return;
     }
+    setDetailsError(null);
+    setPreviewFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setPreviewDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+    setPhotoStep("preview");
+    setPreviewRoomId(roomId);
+    setActiveCameraRoomId(null);
+    e.target.value = "";
+  };
+
+  const retakePhoto = () => {
+    setPreviewFile(null);
+    setPreviewDataUrl(null);
+    setPhotoStep("idle");
+    setPhotoNote("");
+    setPreviewRoomId(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const savePhotoFromPreview = async () => {
+    const roomId = previewRoomId;
+    if (!roomId || !selectedPropertyId || !previewFile) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
 
     setPhotoUploadingFor(roomId);
     setDetailsError(null);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
       const timestamp = Date.now();
       const storagePath = `${user.id}/${selectedPropertyId}/${roomId}/${timestamp}.jpg`;
 
       const { error: uploadErr } = await supabase.storage
         .from("photos")
-        .upload(storagePath, file, { contentType: "image/jpeg", upsert: false });
+        .upload(storagePath, previewFile, { contentType: "image/jpeg", upsert: false });
 
       if (uploadErr) {
         setDetailsError(uploadErr.message ?? "Failed to upload photo.");
         setPhotoUploadingFor(null);
-        setActiveCameraRoomId(null);
-        e.target.value = "";
+        retakePhoto();
         return;
       }
 
@@ -456,7 +513,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
           property_id: selectedPropertyId,
           user_id: user.id,
           storage_path: storagePath,
-          note: null,
+          note: photoNote.trim() || null,
           taken_at: takenAt,
         })
         .select("id, storage_path, room_id")
@@ -465,8 +522,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       if (insertErr) {
         setDetailsError(insertErr.message ?? "Failed to save photo.");
         setPhotoUploadingFor(null);
-        setActiveCameraRoomId(null);
-        e.target.value = "";
+        retakePhoto();
         return;
       }
 
@@ -482,12 +538,36 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       if (urlData?.signedUrl) {
         setPhotoUrls((prev) => ({ ...prev, [String(photo.id)]: urlData.signedUrl }));
       }
+      retakePhoto();
     } catch {
       setDetailsError("Something went wrong.");
     } finally {
       setPhotoUploadingFor(null);
-      setActiveCameraRoomId(null);
-      e.target.value = "";
+    }
+  };
+
+  const handleDeletePhoto = async (photo: PhotoDetail) => {
+    if (!window.confirm("Are you sure you want to delete this photo?")) return;
+    setDetailsError(null);
+    try {
+      await supabase.storage.from("photos").remove([photo.storage_path]);
+      const { error: deleteErr } = await supabase.from("photos").delete().eq("id", photo.id);
+      if (deleteErr) {
+        setDetailsError(deleteErr.message ?? "Failed to delete photo.");
+        return;
+      }
+      const rid = String(photo.room_id);
+      setPropertyPhotos((prev) => ({
+        ...prev,
+        [rid]: (prev[rid] ?? []).filter((p) => p.id !== photo.id),
+      }));
+      setPhotoUrls((prev) => {
+        const next = { ...prev };
+        delete next[String(photo.id)];
+        return next;
+      });
+    } catch {
+      setDetailsError("Something went wrong.");
     }
   };
 
@@ -501,9 +581,13 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     setRoomComplete((prev) => ({ ...prev, [roomId]: checked }));
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    if (!selectedPropertyId) return;
-    if (!window.confirm("Delete this room and all its photos?")) return;
+  const handleDeleteRoomClick = (roomId: string) => {
+    setRoomToDelete(roomId);
+  };
+
+  const handleConfirmDeleteRoom = async () => {
+    const roomId = roomToDelete;
+    if (!roomId || !selectedPropertyId) return;
     setDetailsError(null);
     try {
       const photos = propertyPhotos[roomId] ?? [];
@@ -514,6 +598,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       const { error } = await supabase.from("rooms").delete().eq("id", roomId);
       if (error) {
         setDetailsError(error.message ?? "Failed to delete room.");
+        setRoomToDelete(null);
         return;
       }
       setPropertyRooms((prev) => prev.filter((r) => String(r.id) !== roomId));
@@ -529,15 +614,34 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       });
     } catch {
       setDetailsError("Something went wrong.");
+    } finally {
+      setRoomToDelete(null);
     }
   };
 
-  const handleAddRoom = async () => {
+  const handleAddRoomClick = () => {
+    setAddRoomModalOpen(true);
+    setAddRoomSelectedType(null);
+    setAddRoomCustomName("");
+  };
+
+  const handleConfirmAddRoom = async () => {
     if (!selectedPropertyId) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    const roomType = addRoomSelectedType;
+    if (!roomType) return;
+    const isCustom = roomType === "Custom";
+    const baseName = isCustom ? addRoomCustomName.trim() || "Custom" : roomType;
+    if (isCustom && !addRoomCustomName.trim()) return;
+
+    const sameTypeRooms = propertyRooms.filter((r) =>
+      r.room_type === "Custom" ? (r.custom_name || "").trim() === baseName : r.room_type === roomType
+    );
+    const displayName = `${baseName} ${sameTypeRooms.length + 1}`;
+
     setDetailsError(null);
     try {
       const { data: newRoom, error } = await supabase
@@ -545,9 +649,9 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         .insert({
           property_id: selectedPropertyId,
           user_id: user.id,
-          room_type: "Room",
-          custom_name: null,
-          display_name: "Room",
+          room_type: roomType,
+          custom_name: isCustom ? addRoomCustomName.trim() : null,
+          display_name: displayName,
         })
         .select("id, display_name, room_type, custom_name")
         .single();
@@ -558,8 +662,44 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       }
       setPropertyRooms((prev) => [...prev, newRoom as RoomDetail]);
       setPropertyPhotos((prev) => ({ ...prev, [String(newRoom.id)]: [] }));
+      setAddRoomModalOpen(false);
+      setAddRoomSelectedType(null);
+      setAddRoomCustomName("");
     } catch {
       setDetailsError("Something went wrong.");
+    }
+  };
+
+  const handleRenameRoomStart = (room: RoomDetail) => {
+    setEditingRoomId(String(room.id));
+    setEditingRoomName(room.display_name || room.room_type || "Room");
+  };
+
+  const handleRenameRoomSave = async () => {
+    if (!editingRoomId || !editingRoomName.trim()) {
+      setEditingRoomId(null);
+      setEditingRoomName("");
+      return;
+    }
+    const trimmed = editingRoomName.trim();
+    setDetailsError(null);
+    try {
+      const { error } = await supabase
+        .from("rooms")
+        .update({ display_name: trimmed })
+        .eq("id", editingRoomId);
+      if (error) {
+        setDetailsError(error.message ?? "Failed to rename room.");
+        return;
+      }
+      setPropertyRooms((prev) =>
+        prev.map((r) => (String(r.id) === editingRoomId ? { ...r, display_name: trimmed } : r))
+      );
+    } catch {
+      setDetailsError("Something went wrong.");
+    } finally {
+      setEditingRoomId(null);
+      setEditingRoomName("");
     }
   };
 
@@ -588,6 +728,159 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         className="hidden"
         aria-hidden
       />
+      {roomToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Delete Room
+            </h2>
+            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+              Are you sure you want to delete this room? This will also delete all photos in it.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRoomToDelete(null)}
+                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity"
+                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteRoom}
+                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                Yes, Delete Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addRoomModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto">
+            <p className="text-[#0F172A] font-medium mb-3" style={fontStyle}>
+              Name the room
+            </p>
+            <div className="mb-4">
+              <label htmlFor="add-room-type" className="block text-sm font-medium text-[#414651] mb-1.5" style={fontStyle}>
+                Room type
+              </label>
+              <select
+                id="add-room-type"
+                value={addRoomSelectedType ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAddRoomSelectedType(v || null);
+                  if (v !== "Custom") setAddRoomCustomName("");
+                }}
+                className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20"
+                style={fontStyle}
+              >
+                <option value="">Select room type</option>
+                {ADD_ROOM_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            {addRoomSelectedType === "Custom" && (
+              <div className="mb-4">
+                <label htmlFor="add-room-custom" className="block text-sm font-medium text-[#414651] mb-1.5" style={fontStyle}>
+                  Custom room name
+                </label>
+                <input
+                  id="add-room-custom"
+                  type="text"
+                  value={addRoomCustomName}
+                  onChange={(e) => setAddRoomCustomName(e.target.value)}
+                  placeholder="e.g. Study, Attic"
+                  className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20"
+                  style={fontStyle}
+                />
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddRoomModalOpen(false);
+                  setAddRoomSelectedType(null);
+                  setAddRoomCustomName("");
+                }}
+                className="flex-1 py-2.5 rounded-lg border border-gray-200 bg-white text-[#0F172A] font-medium text-sm"
+                style={fontStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAddRoom}
+                disabled={!addRoomSelectedType || (addRoomSelectedType === "Custom" && !addRoomCustomName.trim())}
+                className="flex-1 py-2.5 rounded-lg bg-[#008bff] text-white font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                Add Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {photoStep === "preview" && previewDataUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-6 my-auto max-h-[90vh] overflow-y-auto">
+            <p className="text-[#0F172A] font-medium text-sm mb-3" style={fontStyle}>
+              Preview
+            </p>
+            <div className="rounded-lg overflow-hidden mb-4 min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewDataUrl}
+                alt="Preview"
+                className="block w-full max-w-full h-auto object-contain rounded-xl"
+                style={{ maxHeight: "50vh" }}
+              />
+            </div>
+            <p className="text-[#0F172A] font-medium text-sm mb-2" style={fontStyle}>
+              Add an optional note
+            </p>
+            <input
+              type="text"
+              value={photoNote}
+              onChange={(e) => setPhotoNote(e.target.value.slice(0, 500))}
+              placeholder="e.g. Scratch on wall near door, approximately 15cm long"
+              maxLength={500}
+              className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-1"
+              style={fontStyle}
+            />
+            <p className="text-[#94A3B8] text-xs mb-4" style={fontStyle}>
+              {photoNote.length}/500
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={retakePhoto}
+                className="flex-1 py-2.5 rounded-full border border-gray-200 bg-white text-[#0F172A] font-medium text-sm"
+                style={fontStyle}
+              >
+                Retake
+              </button>
+              <button
+                type="button"
+                onClick={savePhotoFromPreview}
+                disabled={photoUploadingFor !== null}
+                className="flex-1 py-2.5 rounded-full bg-[#008bff] text-white font-medium text-sm disabled:opacity-50"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {photoUploadingFor ? "Saving…" : "Save Photo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <AnimatePresence initial={false} mode="wait">
         {step === "select-property" && (
           <motion.div
@@ -957,38 +1250,74 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
                         >
                           <button
                             type="button"
-                            onClick={() => handleDeleteRoom(rid)}
+                            onClick={() => handleDeleteRoomClick(rid)}
                             className="absolute top-3 right-3 p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
                             aria-label="Delete room"
                           >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <line x1="10" y1="11" x2="10" y2="17" />
+                              <line x1="14" y1="11" x2="14" y2="17" />
                             </svg>
                           </button>
 
-                          <p className="font-semibold text-[#0F172A] text-base pr-8" style={fontStyle}>
-                            {roomName}
-                          </p>
+                          {editingRoomId === rid ? (
+                            <input
+                              type="text"
+                              value={editingRoomName}
+                              onChange={(e) => setEditingRoomName(e.target.value)}
+                              onBlur={handleRenameRoomSave}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleRenameRoomSave();
+                              }}
+                              autoFocus
+                              className="font-semibold text-[#0F172A] text-base pr-8 w-full py-1 px-2 -mx-2 rounded border border-[#008bff] outline-none"
+                              style={fontStyle}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRenameRoomStart(room)}
+                              className="font-semibold text-[#0F172A] text-base pr-8 w-full text-left py-0 border-0 bg-transparent cursor-pointer hover:underline"
+                              style={fontStyle}
+                            >
+                              {roomName}
+                            </button>
+                          )}
 
                           <div className="grid grid-cols-3 gap-2 my-3">
                             {photos.map((photo) => (
                               <div
                                 key={photo.id}
-                                className="aspect-square rounded-lg overflow-hidden bg-gray-100"
+                                className="relative w-full overflow-hidden rounded-lg bg-gray-100"
+                                style={{ paddingBottom: '100%' }}
                               >
                                 {photoUrls[String(photo.id)] ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={photoUrls[String(photo.id)]}
                                     alt=""
-                                    className="w-full h-full object-cover"
+                                    className="absolute top-0 left-0 w-full h-full object-cover object-center"
                                   />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                  <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-400 text-xs">
                                     Loading
                                   </div>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePhoto(photo)}
+                                  className="absolute top-1 right-1.5 w-4 h-4 flex items-center justify-center bg-white/40 rounded border-0 text-sm cursor-pointer"
+                                  aria-label="Delete photo"
+                                >
+                                  <span
+                                    className="inline-block"
+                                    style={{ color: "#ef4444", textShadow: "0 0 2px rgba(0,0,0,1), 0 1px 2px rgba(0,0,0,0.8)" }}
+                                  >
+                                    X
+                                  </span>
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -1026,7 +1355,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
                   <button
                     type="button"
-                    onClick={handleAddRoom}
+                    onClick={handleAddRoomClick}
                     className="w-full py-2.5 rounded-xl bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6] flex items-center justify-center gap-2 mb-6"
                     style={{ ...fontStyle, color: "#ffffff" }}
                   >

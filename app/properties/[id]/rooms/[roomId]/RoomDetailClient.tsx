@@ -72,7 +72,7 @@ export function RoomDetailClient({
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
-  const [step, setStep] = useState<'idle' | 'preview' | 'note'>('idle');
+  const [step, setStep] = useState<'idle' | 'preview'>('idle');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,11 +124,6 @@ export function RoomDetailClient({
     setPreviewDataUrl(null);
     setStep('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  function usePhoto() {
-    setStep('note');
-    setNote('');
   }
 
   async function savePhoto() {
@@ -331,12 +326,8 @@ export function RoomDetailClient({
             </p>
             <div
               style={{
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '4/3',
                 borderRadius: '0.75rem',
                 overflow: 'hidden',
-                backgroundColor: '#0F172A',
                 marginBottom: '1rem',
               }}
             >
@@ -345,46 +336,15 @@ export function RoomDetailClient({
                 src={previewDataUrl}
                 alt="Preview"
                 style={{
-                  width: '100%',
-                  height: '100%',
+                  display: 'block',
+                  maxWidth: '100%',
+                  maxHeight: '50vh',
+                  width: 'auto',
+                  height: 'auto',
                   objectFit: 'contain',
                 }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={retake}
-                style={{
-                  flex: 1,
-                  padding: '0.85rem',
-                  borderRadius: '9999px',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: '#ffffff',
-                  color: '#0F172A',
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={usePhoto}
-                style={{
-                  flex: 1,
-                  ...PRIMARY_BUTTON_STYLE,
-                }}
-              >
-                Use Photo
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'note' && !isLocked && (
-          <div style={CARD_STYLE}>
             <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#0F172A', marginBottom: '0.5rem' }}>
               Add an optional note
             </p>
@@ -392,7 +352,7 @@ export function RoomDetailClient({
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value.slice(0, 500))}
-              placeholder="e.g. Scratch on wall near door"
+              placeholder="e.g. Scratch on wall near door, approximately 15cm long"
               maxLength={500}
               style={{
                 width: '100%',
@@ -413,16 +373,18 @@ export function RoomDetailClient({
                 type="button"
                 onClick={retake}
                 style={{
-                  padding: '0.75rem 1rem',
+                  flex: 1,
+                  padding: '0.85rem',
                   borderRadius: '9999px',
                   border: '1px solid #E2E8F0',
                   backgroundColor: '#ffffff',
                   color: '#0F172A',
-                  fontSize: '0.9rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                Retake
               </button>
               <button
                 type="button"
@@ -486,24 +448,37 @@ export function RoomDetailClient({
                     style={{
                       position: 'relative',
                       width: '100%',
-                      aspectRatio: '1',
+                      paddingBottom: '100%',
                       borderRadius: '0.5rem',
                       overflow: 'hidden',
                       backgroundColor: '#E2E8F0',
                     }}
                   >
                     {photoUrls[String(photo.id)] ? (
-                      <Image
-                        src={photoUrls[String(photo.id)]}
-                        alt=""
-                        fill
-                        sizes="140px"
-                        style={{ objectFit: 'cover' }}
-                        unoptimized
-                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                        }}
+                      >
+                        <Image
+                          src={photoUrls[String(photo.id)]}
+                          alt=""
+                          fill
+                          sizes="140px"
+                          style={{ objectFit: 'cover', objectPosition: 'center' }}
+                          unoptimized
+                        />
+                      </div>
                     ) : (
                       <div
                         style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
                           width: '100%',
                           height: '100%',
                           display: 'flex',
@@ -515,6 +490,21 @@ export function RoomDetailClient({
                       >
                         Loading…
                       </div>
+                    )}
+                    {!isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => deletePhoto(photo)}
+                        disabled={loading}
+                        className="absolute top-1 right-1.5 w-4 h-4 flex items-center justify-center bg-white/40 rounded border-0 text-sm cursor-pointer"
+                        aria-label="Delete photo"
+                      >
+                        <span
+                          style={{ color: '#ef4444', textShadow: '0 0 2px rgba(0,0,0,1), 0 1px 2px rgba(0,0,0,0.8)' }}
+                        >
+                          X
+                        </span>
+                      </button>
                     )}
                   </div>
                   {photo.note && (
@@ -532,23 +522,6 @@ export function RoomDetailClient({
                       {photo.note}
                     </p>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => deletePhoto(photo)}
-                    disabled={loading}
-                    style={{
-                      padding: '0.35rem 0.6rem',
-                      borderRadius: '9999px',
-                      border: '1px solid #FCA5A5',
-                      backgroundColor: '#FEF2F2',
-                      color: '#B91C1C',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      alignSelf: 'flex-start',
-                    }}
-                  >
-                    Delete
-                  </button>
                 </div>
               ))}
             </div>

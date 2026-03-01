@@ -14,7 +14,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Deposit Guard — Platform (Pre-Alpha v0.0.6)",
+  title: "Deposit Guard — Platform (Pre-Alpha v0.0.7)",
   description: "Document your rental property condition and protect your deposit",
   icons: {
     icon: "/dg-favicon.png",

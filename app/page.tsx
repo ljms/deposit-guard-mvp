@@ -138,14 +138,14 @@ export default function HomePage() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8F8F8]">
         <div className="w-8 h-8 border-2 border-[#008BFF] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] p-6 overflow-hidden">
+    <div className={`min-h-[100dvh] flex p-6 pb-8 overflow-y-auto ${screen === "signup" ? "items-start justify-center pt-8" : "items-center justify-center"}`}>
       <div className="relative w-full max-w-[420px] min-h-[480px]">
         <AnimatePresence initial={false} mode="wait">
           {screen === "login" && (
