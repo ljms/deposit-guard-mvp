@@ -97,6 +97,7 @@ export function DashboardClient({
   }, [searchParams, router]);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Build report items from ALL reports (one card per report) — in_progress and completed
@@ -164,8 +165,15 @@ export function DashboardClient({
     }
   }
 
-  async function handleDeleteProperty(property: Property) {
-    if (!window.confirm("Are you sure you want to delete this report? This will delete the property and all associated data. This cannot be undone.")) return;
+  function openDeletePropertyModal(property: Property) {
+    setError(null);
+    setPropertyToDelete(property);
+  }
+
+  async function confirmDeleteProperty() {
+    const property = propertyToDelete;
+    if (!property) return;
+    setPropertyToDelete(null);
     setError(null);
     setDeletingId(property.id);
     try {
@@ -333,20 +341,20 @@ export function DashboardClient({
         <div className="flex flex-col gap-4">
           {sortedItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+              <div className="flex justify-center mb-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/checklist-graphic.png"
+                  alt=""
+                  className="max-w-[280px] w-full h-auto"
+                />
+              </div>
               <p className="text-gray-600 font-medium mb-1" style={fontStyle}>
                 No reports yet
               </p>
-              <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
+              <p className="text-sm text-gray-500" style={fontStyle}>
                 Create your first report to start documenting your rental.
               </p>
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#008bff] text-white font-medium text-sm"
-                style={{ ...fontStyle, color: "#ffffff" }}
-              >
-                ＋ Create New Report
-              </button>
             </div>
           ) : (
             sortedItems.map(({ property, report, isCompleted, photoCount, date, reportType }) => (
@@ -378,7 +386,7 @@ export function DashboardClient({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleDeleteProperty(property)}
+                      onClick={() => openDeletePropertyModal(property)}
                       disabled={deletingId === property.id}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
                       aria-label="Delete"
@@ -487,6 +495,38 @@ export function DashboardClient({
           )}
         </div>
       </main>
+
+      {propertyToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Delete Report
+            </h2>
+            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+              Are you sure you want to delete this report? This will delete the property and all associated data. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPropertyToDelete(null)}
+                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:bg-opacity-90 transition-opacity"
+                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteProperty}
+                disabled={deletingId === propertyToDelete.id}
+                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {deletingId === propertyToDelete.id ? "Deleting…" : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ReportFlowModal
         isOpen={showReportModal}

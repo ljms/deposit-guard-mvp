@@ -30,9 +30,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
 
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const DELETE_CONFIRM =
-    'Are you sure you want to delete your account? This will permanently delete all your properties, rooms and photos. This cannot be undone.';
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   async function handleUpdateEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -86,8 +84,12 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
     router.refresh();
   }
 
-  async function handleDeleteAccount() {
-    if (!window.confirm(DELETE_CONFIRM)) return;
+  function openDeleteAccountModal() {
+    setDeleteError(null);
+    setShowDeleteAccountModal(true);
+  }
+
+  async function confirmDeleteAccount() {
     setDeleteError(null);
     setDeleteLoading(true);
     try {
@@ -98,6 +100,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
         setDeleteLoading(false);
         return;
       }
+      setShowDeleteAccountModal(false);
       await supabase.auth.signOut();
       router.push('/');
       router.refresh();
@@ -242,7 +245,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
             </p>
             <button
               type="button"
-              onClick={handleDeleteAccount}
+              onClick={openDeleteAccountModal}
               disabled={deleteLoading}
               className="w-full py-3 rounded-lg bg-red-500 text-white font-medium text-base hover:bg-red-600 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
               style={{ ...fontStyle, color: '#ffffff' }}
@@ -256,6 +259,45 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
             )}
           </div>
         </main>
+
+        {showDeleteAccountModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-bold text-[#0F172A] mb-3" style={fontStyle}>
+                Delete Account
+              </h2>
+              <p className="text-sm text-[#414651] mb-4" style={fontStyle}>
+                Are you sure you want to delete your account? This action cannot be undone and will permanently delete:
+              </p>
+              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-100">
+                <ul className="list-disc list-inside text-sm text-red-600 space-y-1.5" style={fontStyle}>
+                  <li>All your personal data</li>
+                  <li>Your saved preferences</li>
+                  <li>Access to all services</li>
+                </ul>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAccountModal(false)}
+                  className="flex-[1] py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-[#008bff] hover:bg-[#0077e6] transition-colors"
+                  style={{ ...fontStyle, color: '#ffffff' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteAccount}
+                  disabled={deleteLoading}
+                  className="flex-[2] py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+                  style={{ ...fontStyle, color: '#ffffff' }}
+                >
+                  {deleteLoading ? 'Deleting…' : 'Delete my Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bottom navigation */}
         <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">

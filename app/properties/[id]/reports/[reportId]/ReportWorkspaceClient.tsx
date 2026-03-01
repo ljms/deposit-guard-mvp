@@ -123,6 +123,7 @@ export function ReportWorkspaceClient({
   const [photoNote, setPhotoNote] = useState('');
   const [previewRoomId, setPreviewRoomId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<Photo | null>(null);
   const [addRoomModalOpen, setAddRoomModalOpen] = useState(false);
   const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
   const [addRoomCustomName, setAddRoomCustomName] = useState('');
@@ -248,8 +249,14 @@ export function ReportWorkspaceClient({
     }
   };
 
-  const handleDeletePhoto = async (photo: Photo) => {
-    if (!window.confirm("Are you sure you want to delete this photo?")) return;
+  const handleDeletePhotoClick = (photo: Photo) => {
+    setPhotoToDelete(photo);
+  };
+
+  const handleConfirmDeletePhoto = async () => {
+    const photo = photoToDelete;
+    if (!photo) return;
+    setPhotoToDelete(null);
     setDetailsError(null);
     try {
       await supabase.storage.from("photos").remove([photo.storage_path]);
@@ -861,6 +868,37 @@ export function ReportWorkspaceClient({
         </div>
       )}
 
+      {photoToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Delete Photo
+            </h2>
+            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+              Are you sure you want to delete this photo?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPhotoToDelete(null)}
+                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:bg-opacity-90 transition-opacity"
+                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePhoto}
+                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                Yes, Delete Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {addRoomModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto">
@@ -1102,7 +1140,7 @@ export function ReportWorkspaceClient({
                       {!isLocked && (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
+                          onClick={(e) => { e.stopPropagation(); handleDeletePhotoClick(photo); }}
                           className="absolute top-1 right-1.5 w-4 h-4 flex items-center justify-center bg-white/40 rounded border-0 text-sm cursor-pointer"
                           aria-label="Delete photo"
                         >
