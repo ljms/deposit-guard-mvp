@@ -39,3 +39,21 @@ button,
 a {
   cursor: pointer;
 }
+
+/* Remove default tap highlight (blue flash) on touch */
+button,
+a,
+[role="button"],
+input[type="checkbox"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tap feedback on mobile/touch only — subtle visual response */
+@media (hover: none) {
+  button:active,
+  a:active,
+[role="button"]:active,
+  input[type="checkbox"]:active {
+    opacity: 0.75;
+  }
+}
