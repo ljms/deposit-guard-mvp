@@ -341,12 +341,12 @@ export function DashboardClient({
         <div className="flex flex-col gap-4">
           {sortedItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center my-0 py-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/checklist-graphic.png"
                   alt=""
-                  className="max-w-[280px] w-full h-auto"
+                  className="max-w-[280px] w-full h-auto block my-0 py-0"
                 />
               </div>
               <p className="text-gray-600 font-medium mb-1" style={fontStyle}>

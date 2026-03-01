@@ -165,7 +165,7 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
           <button
             type="button"
             onClick={() => setShowCreatePropertyModal(true)}
-            className="px-4 py-2 rounded-lg bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6] transition-colors"
+            className="px-2 py-1.5 text-xs rounded-lg bg-[#008bff] text-white font-medium hover:bg-[#0077e6] transition-colors md:px-4 md:py-2 md:text-sm"
             style={{ ...fontStyle, color: "#ffffff" }}
           >
             ＋ Create New Property
