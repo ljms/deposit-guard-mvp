@@ -476,7 +476,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, i
 
       drawRow('Address', addressFull);
       drawRow('Property Type', propertyType);
-      drawRow('Report Generated', reportGenerated);
+      drawRow('Report Completed', reportGenerated);
       drawRow('Total Rooms', String(rooms.length));
       drawRow('Total Photos', String(photos.length));
 

@@ -21,7 +21,7 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  move_in_date?: string | null;
+  tenancy_start_date?: string | null;
 };
 
 type Report = {
@@ -92,7 +92,15 @@ export function PropertyDetailClient({
   const searchParams = useSearchParams();
   const supabase = createClient();
   const [showReportTypeModal, setShowReportTypeModal] = useState(false);
+  const [showMoveInDateModal, setShowMoveInDateModal] = useState(false);
+  const [moveInDateInput, setMoveInDateInput] = useState("");
+  const [showCheckoutDateModal, setShowCheckoutDateModal] = useState(false);
+  const [checkoutDateInput, setCheckoutDateInput] = useState("");
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showCompletedDeleteStep1, setShowCompletedDeleteStep1] =
+    useState(false);
+  const [showCompletedDeleteStep2, setShowCompletedDeleteStep2] =
+    useState(false);
 
   useEffect(() => {
     if (searchParams.get("newReport") === "true") {
@@ -102,8 +110,15 @@ export function PropertyDetailClient({
   }, [searchParams, property.id, router]);
   const [createReportLoading, setCreateReportLoading] = useState(false);
   const [deletingInProgress, setDeletingInProgress] = useState(false);
+  const [deletingCompletedReportId, setDeletingCompletedReportId] = useState<
+    string | number | null
+  >(null);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [reportPendingDelete, setReportPendingDelete] = useState<Report | null>(
+    null
+  );
 
   const propertyIdStr = String(property.id);
   const reportsForThisProperty = reports.filter(
@@ -125,7 +140,20 @@ export function PropertyDetailClient({
     setShowReportTypeModal(true);
   }
 
-  async function handleSelectReportType(reportType: string) {
+  function formatDateLocalForReport(dateInput: string): string {
+    if (!dateInput.trim()) return "";
+    const d = new Date(dateInput + "T12:00:00");
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  async function handleSelectReportType(
+    reportType: string,
+    extra?: { movein_date_local?: string; checkout_date_local?: string }
+  ) {
     setError(null);
     setCreateReportLoading(true);
     try {
@@ -143,9 +171,10 @@ export function PropertyDetailClient({
         .insert({
           property_id: property.id,
           user_id: user.id,
-          status: "in_progress", // new report from property detail is in progress until PDF is generated
+          status: "in_progress",
           report_type: reportType,
           storage_path: null,
+          ...extra,
         })
         .select("id")
         .single();
@@ -157,7 +186,9 @@ export function PropertyDetailClient({
       }
 
       setShowReportTypeModal(false);
-      setDownloadingPath(null); // clear any stale download state before navigation
+      setShowMoveInDateModal(false);
+      setShowCheckoutDateModal(false);
+      setDownloadingPath(null);
       router.refresh();
       router.push(`/properties/${property.id}/reports/${newReport.id}`);
     } catch {
@@ -167,9 +198,50 @@ export function PropertyDetailClient({
     }
   }
 
+  function openMoveInDateModal() {
+    const prefill = property.tenancy_start_date
+      ? new Date(property.tenancy_start_date).toISOString().slice(0, 10)
+      : "";
+    setMoveInDateInput(prefill);
+    setError(null);
+    setShowReportTypeModal(false);
+    setShowMoveInDateModal(true);
+  }
+
+  function openCheckoutDateModal() {
+    setCheckoutDateInput(new Date().toISOString().slice(0, 10));
+    setError(null);
+    setShowReportTypeModal(false);
+    setShowCheckoutDateModal(true);
+  }
+
+  function handleMoveInDateContinue() {
+    if (!moveInDateInput.trim()) {
+      setError("Please select a move-in date.");
+      return;
+    }
+    const movein_date_local = formatDateLocalForReport(moveInDateInput);
+    handleSelectReportType("check-in", { movein_date_local });
+  }
+
+  function handleCheckoutDateContinue() {
+    if (!checkoutDateInput.trim()) {
+      setError("Please select a check-out date.");
+      return;
+    }
+    const checkout_date_local = formatDateLocalForReport(checkoutDateInput);
+    handleSelectReportType("check-out", { checkout_date_local });
+  }
+
   function openDeleteConfirmModal() {
     setError(null);
     setShowDeleteConfirmModal(true);
+  }
+
+  function openCompletedDeleteStepOne(report: Report) {
+    setError(null);
+    setReportPendingDelete(report);
+    setShowCompletedDeleteStep1(true);
   }
 
   async function confirmDeleteInProgressReport() {
@@ -215,6 +287,62 @@ export function PropertyDetailClient({
       setError("Something went wrong. Please try again.");
     } finally {
       setDeletingInProgress(false);
+    }
+  }
+
+  async function permanentlyDeleteCompletedReport() {
+    if (!reportPendingDelete) return;
+    setShowCompletedDeleteStep2(false);
+    setError(null);
+    setDeletingCompletedReportId(reportPendingDelete.id);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be signed in to delete a report.");
+        setDeletingCompletedReportId(null);
+        return;
+      }
+
+      if (reportPendingDelete.storage_path) {
+        await supabase.storage
+          .from("reports")
+          .remove([reportPendingDelete.storage_path]);
+      }
+
+      const { data: photos } = await supabase
+        .from("photos")
+        .select("id, storage_path")
+        .eq("property_id", property.id)
+        .eq("user_id", user.id);
+
+      const photoPaths = (photos ?? [])
+        .map((p) => p.storage_path)
+        .filter(Boolean) as string[];
+
+      if (photoPaths.length > 0) {
+        await supabase.storage.from("photos").remove(photoPaths);
+      }
+
+      await supabase
+        .from("photos")
+        .delete()
+        .eq("property_id", property.id)
+        .eq("user_id", user.id);
+
+      await supabase
+        .from("reports")
+        .delete()
+        .eq("id", reportPendingDelete.id)
+        .eq("user_id", user.id);
+
+      setReportPendingDelete(null);
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setDeletingCompletedReportId(null);
     }
   }
 
@@ -307,10 +435,10 @@ export function PropertyDetailClient({
               <span className="text-lg shrink-0" aria-hidden>📅</span>
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                  Move-In Date
+                  Tenancy Start Date
                 </p>
                 <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                  {formatMoveInDate(property.move_in_date)}
+                  {formatMoveInDate(property.tenancy_start_date)}
                 </p>
               </div>
             </div>
@@ -324,6 +452,14 @@ export function PropertyDetailClient({
 
         {!hasReports ? (
           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+            <div className="flex justify-center my-0 py-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/checklist-graphic.png"
+                alt=""
+                className="max-w-[280px] w-full h-auto block my-0 py-0"
+              />
+            </div>
             <p className="text-gray-600 font-medium mb-1" style={fontStyle}>
               No reports yet
             </p>
@@ -392,8 +528,31 @@ export function PropertyDetailClient({
                 return (
                   <div
                     key={report.id}
-                    className="rounded-xl bg-white border border-gray-200 shadow-sm p-4"
+                    className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative"
                   >
+                    <button
+                      type="button"
+                      onClick={() => openCompletedDeleteStepOne(report as Report)}
+                      disabled={deletingCompletedReportId === report.id}
+                      className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                      aria-label="Delete completed report"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                      </svg>
+                    </button>
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="w-2 h-2 rounded-full bg-green-500" />
                       <span className="text-sm text-gray-500" style={fontStyle}>
@@ -443,7 +602,9 @@ export function PropertyDetailClient({
           >
             <motion.div
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => !deletingInProgress && setShowDeleteConfirmModal(false)}
+              onClick={() =>
+                !deletingInProgress && setShowDeleteConfirmModal(false)
+              }
               aria-hidden
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -457,7 +618,10 @@ export function PropertyDetailClient({
               exit={fadeScaleTransition.exit}
               transition={fadeScaleTransition.transition}
             >
-              <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              <h2
+                className="text-lg font-semibold text-[#0F172A] mb-1"
+                style={fontStyle}
+              >
                 Remove Report
               </h2>
               <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
@@ -469,7 +633,11 @@ export function PropertyDetailClient({
                   onClick={() => setShowDeleteConfirmModal(false)}
                   disabled={deletingInProgress}
                   className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                  style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+                  style={{
+                    ...fontStyle,
+                    backgroundColor: "#008bff",
+                    color: "#ffffff",
+                  }}
                 >
                   Cancel
                 </button>
@@ -486,20 +654,164 @@ export function PropertyDetailClient({
             </motion.div>
           </motion.div>
         )}
+
+        {showCompletedDeleteStep1 && reportPendingDelete && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowCompletedDeleteStep1(false)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
+              <h2
+                className="text-lg font-semibold text-[#0F172A] mb-1"
+                style={fontStyle}
+              >
+                Delete Report?
+              </h2>
+              <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+                Are you sure you want to delete this report? This action cannot
+                be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompletedDeleteStep1(false);
+                    setReportPendingDelete(null);
+                  }}
+                  className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity"
+                  style={{
+                    ...fontStyle,
+                    backgroundColor: "#008bff",
+                    color: "#ffffff",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompletedDeleteStep1(false);
+                    setShowCompletedDeleteStep2(true);
+                  }}
+                  className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {showCompletedDeleteStep2 && reportPendingDelete && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !deletingCompletedReportId && setShowCompletedDeleteStep2(false)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
+              <h2
+                className="text-lg font-semibold text-[#0F172A] mb-1"
+                style={fontStyle}
+              >
+                This is permanent
+              </h2>
+              <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+                This will permanently delete this report and all of its photos.
+                Are you absolutely sure?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCompletedDeleteStep2(false)}
+                  disabled={Boolean(deletingCompletedReportId)}
+                  className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{
+                    ...fontStyle,
+                    backgroundColor: "#008bff",
+                    color: "#ffffff",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={permanentlyDeleteCompletedReport}
+                  disabled={Boolean(deletingCompletedReportId)}
+                  className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  {deletingCompletedReportId
+                    ? "Deleting…"
+                    : "Yes, Permanently Delete"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Report type selection modal */}
-      {showReportTypeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => !createReportLoading && setShowReportTypeModal(false)}
-            aria-hidden
-          />
-          <div
-            className="relative w-full max-w-[360px] rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {showReportTypeModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !createReportLoading && setShowReportTypeModal(false)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[360px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
               New report
             </h2>
@@ -507,18 +819,33 @@ export function PropertyDetailClient({
               Choose a report type for this property.
             </p>
             <div className="flex flex-col gap-2">
-              {REPORT_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  disabled={createReportLoading}
-                  onClick={() => handleSelectReportType(type)}
-                  className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50 hover:border-[#008bff]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={fontStyle}
-                >
-                  {REPORT_TYPE_LABELS[type]}
-                </button>
-              ))}
+              <button
+                type="button"
+                disabled={createReportLoading}
+                onClick={openMoveInDateModal}
+                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50 hover:border-[#008bff]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={fontStyle}
+              >
+                {REPORT_TYPE_LABELS["check-in"]}
+              </button>
+              <button
+                type="button"
+                disabled={createReportLoading}
+                onClick={() => handleSelectReportType("interim")}
+                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50 hover:border-[#008bff]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={fontStyle}
+              >
+                {REPORT_TYPE_LABELS["interim"]}
+              </button>
+              <button
+                type="button"
+                disabled={createReportLoading}
+                onClick={openCheckoutDateModal}
+                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50 hover:border-[#008bff]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={fontStyle}
+              >
+                {REPORT_TYPE_LABELS["check-out"]}
+              </button>
             </div>
             <button
               type="button"
@@ -529,9 +856,128 @@ export function PropertyDetailClient({
             >
               Cancel
             </button>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Tenancy start date modal (Check-In) */}
+        {showMoveInDateModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !createReportLoading && setShowMoveInDateModal(false)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[360px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
+              <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+                What is your move-in date?
+              </h2>
+              <input
+                type="date"
+                value={moveInDateInput}
+                onChange={(e) => setMoveInDateInput(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-lg border border-gray-200 text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mt-4 mb-4"
+                style={fontStyle}
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMoveInDateModal(false)}
+                  disabled={createReportLoading}
+                  className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMoveInDateContinue}
+                  disabled={createReportLoading}
+                  className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-[#008bff] hover:bg-[#0077e6] transition-colors disabled:opacity-50"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  {createReportLoading ? "Creating…" : "Continue"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Check-out date modal */}
+        {showCheckoutDateModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !createReportLoading && setShowCheckoutDateModal(false)}
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.div
+              className="relative w-full max-w-[360px] rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+              initial={fadeScaleTransition.initial}
+              animate={fadeScaleTransition.animate}
+              exit={fadeScaleTransition.exit}
+              transition={fadeScaleTransition.transition}
+            >
+              <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+                What is your check-out date?
+              </h2>
+              <input
+                type="date"
+                value={checkoutDateInput}
+                onChange={(e) => setCheckoutDateInput(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-lg border border-gray-200 text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mt-4 mb-4"
+                style={fontStyle}
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCheckoutDateModal(false)}
+                  disabled={createReportLoading}
+                  className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCheckoutDateContinue}
+                  disabled={createReportLoading}
+                  className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-[#008bff] hover:bg-[#0077e6] transition-colors disabled:opacity-50"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  {createReportLoading ? "Creating…" : "Continue"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">

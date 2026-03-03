@@ -20,23 +20,37 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, address_line1, address_line2, city, postcode, property_type, move_in_date")
+    .select("id, address_line1, address_line2, city, postcode, property_type, tenancy_start_date")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
   if (propertyError || !property) {
+    console.log("[report page] notFound: property fetch failed", {
+      id,
+      reportId,
+      propertyError: propertyError?.message ?? propertyError,
+      hasProperty: !!property,
+    });
     notFound();
   }
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status, storage_path, report_type")
+    .select("id, property_id, status, storage_path, report_type, completed_at, checkout_date_local, movein_date_local")
     .eq("id", reportId)
     .eq("user_id", user.id)
     .single();
 
   if (reportError || !report || String(report.property_id) !== String(id)) {
+    console.log("[report page] notFound: report fetch failed or mismatch", {
+      id,
+      reportId,
+      reportError: reportError?.message ?? reportError,
+      hasReport: !!report,
+      reportPropertyId: report ? String(report.property_id) : null,
+      propertyIdMatch: report ? String(report.property_id) === String(id) : false,
+    });
     notFound();
   }
 
@@ -63,6 +77,9 @@ export default async function ReportPage({ params }: ReportPageProps) {
       property={property}
       reportCompleted={isReportCompleted}
       reportType={report?.report_type ?? null}
+      completedAt={report?.completed_at ?? null}
+      checkoutAtLocal={report?.checkout_date_local ?? null}
+      moveinDateLocal={report?.movein_date_local ?? null}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
     />

@@ -274,7 +274,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   const handleCreateProperty = async () => {
     setCreateError(null);
     if (!moveInDate.trim()) {
-      setCreateError("Please enter your move-in date.");
+      setCreateError("Please enter your tenancy start date.");
       return;
     }
     setCreateLoading(true);
@@ -295,7 +295,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
           address_line2: null,
           city: city.trim() ? toTitleCase(city.trim()) : null,
           postcode: formatPostcode(postcode),
-          move_in_date: moveInDate.trim(),
+          tenancy_start_date: moveInDate.trim(),
           property_type: propertyType,
         })
         .select("id")
@@ -1048,7 +1048,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
                       <div>
                         <label className="block text-[#414651] font-medium text-sm mb-0.5" style={fontStyle}>
-                          Move-In Date <span className="text-[#9CA3AF] font-normal">(required)</span>
+                          Tenancy Start Date <span className="text-[#9CA3AF] font-normal">(required)</span>
                         </label>
                         <input
                           type="date"

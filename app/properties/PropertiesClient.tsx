@@ -22,7 +22,7 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  move_in_date?: string | null;
+  tenancy_start_date?: string | null;
 };
 
 type PropertiesClientProps = {
@@ -255,10 +255,10 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
                     <span className="text-lg shrink-0" aria-hidden>📅</span>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                        Move-In Date
+                        Tenancy Start Date
                       </p>
                       <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                        {formatMoveInDate(property.move_in_date)}
+                        {formatMoveInDate(property.tenancy_start_date)}
                       </p>
                     </div>
                   </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import * as exifr from "exifr";
 import { createClient } from "@/lib/supabase/client";
@@ -15,7 +16,7 @@ type Property = {
   city: string | null;
   postcode: string | null;
   property_type?: string | null;
-  move_in_date?: string | null;
+  tenancy_start_date?: string | null;
 };
 
 type Room = {
@@ -62,6 +63,9 @@ type ReportWorkspaceClientProps = {
   property: Property;
   reportCompleted: boolean;
   reportType?: string | null;
+  completedAt?: string | null;
+  checkoutAtLocal?: string | null;
+  moveinDateLocal?: string | null;
   rooms: Room[];
   photosData: Photo[];
 };
@@ -86,18 +90,38 @@ function formatMoveInDate(iso: string | null | undefined): string {
   });
 }
 
+function formatReportCompleted(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const day = d.getUTCDate();
+  const month = d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" });
+  const year = d.getUTCFullYear();
+  const hour = d.getUTCHours();
+  const min = d.getUTCMinutes();
+  const hourStr = String(hour).padStart(2, "0");
+  const minStr = String(min).padStart(2, "0");
+  return `${day} ${month} ${year}, ${hourStr}:${minStr} GMT`;
+}
+
 export function ReportWorkspaceClient({
   userId,
   reportId,
   property,
   reportCompleted: initialReportCompleted,
   reportType,
+  completedAt,
+  checkoutAtLocal,
+  moveinDateLocal,
   rooms: initialRooms,
   photosData,
 }: ReportWorkspaceClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [checkoutDateInput, setCheckoutDateInput] = useState("");
+  const [checkoutDateSaving, setCheckoutDateSaving] = useState(false);
+  const [checkoutDateError, setCheckoutDateError] = useState<string | null>(null);
 
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [propertyPhotos, setPropertyPhotos] = useState<Record<string, Photo[]>>(() => {
@@ -132,6 +156,8 @@ export function ReportWorkspaceClient({
   const [selectedPhotoForView, setSelectedPhotoForView] = useState<Photo | null>(null);
   const [viewingPhotoNote, setViewingPhotoNote] = useState('');
   const [viewingPhotoNoteSaving, setViewingPhotoNoteSaving] = useState(false);
+  const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
+  const isLocked = reportCompleted;
 
   useEffect(() => {
     const loadUrls = async () => {
@@ -148,6 +174,7 @@ export function ReportWorkspaceClient({
   }, [photosData, supabase.storage]);
 
   const completedCount = rooms.filter((r) => roomComplete[String(r.id)]).length;
+  const effectiveCompletedCount = isLocked ? rooms.length : completedCount;
   const allRoomsComplete = () => {
     if (rooms.length === 0) return false;
     return rooms.every((r) => roomComplete[String(r.id)]);
@@ -687,6 +714,34 @@ export function ReportWorkspaceClient({
     }
   }
 
+  async function handleSaveCheckoutDate() {
+    if (!checkoutDateInput.trim()) {
+      setCheckoutDateError("Please select a check-out date.");
+      return;
+    }
+    setCheckoutDateError(null);
+    setCheckoutDateSaving(true);
+    try {
+      const date = new Date(checkoutDateInput + "T12:00:00");
+      const checkoutDateLocal = date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      const { error: updateError } = await supabase
+        .from("reports")
+        .update({ checkout_date_local: checkoutDateLocal })
+        .eq("id", reportId)
+        .eq("user_id", userId);
+      if (updateError) throw new Error(updateError.message);
+      router.refresh();
+    } catch (err) {
+      setCheckoutDateError(err instanceof Error ? err.message : "Failed to save date. Please try again.");
+    } finally {
+      setCheckoutDateSaving(false);
+    }
+  }
+
   async function downloadReport() {
     setReportGenerating(true);
     setDetailsError(null);
@@ -719,8 +774,6 @@ export function ReportWorkspaceClient({
   }
 
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
-  const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
-  const isLocked = reportCompleted;
 
   return (
     <PageWrapper>
@@ -778,64 +831,134 @@ export function ReportWorkspaceClient({
         </div>
       )}
 
-      {selectedPhotoForView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-8 my-auto max-h-[90vh] overflow-y-auto">
-            <div className="mb-6 min-w-0">
-              {photoUrls[String(selectedPhotoForView.id)] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photoUrls[String(selectedPhotoForView.id)]}
-                  alt=""
-                  className="block w-full max-w-full h-auto object-contain"
-                  style={{ maxHeight: "50vh", borderRadius: "0.75rem" }}
-                />
-              ) : (
-                <div className="flex items-center justify-center text-gray-400 py-12">Loading image…</div>
-              )}
-            </div>
-            {isLocked ? (
-              <p className="text-[#414651] text-sm min-h-[2rem]" style={fontStyle}>
-                {selectedPhotoForView.note ?? "No note"}
-              </p>
-            ) : (
-              <>
-                <textarea
-                  value={viewingPhotoNote}
-                  onChange={(e) => setViewingPhotoNote(e.target.value.slice(0, 500))}
-                  placeholder="Add a note for this photo"
-                  maxLength={500}
-                  rows={3}
-                  className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-2 resize-none"
-                  style={fontStyle}
-                />
-                <p className="text-[#94A3B8] text-xs mb-3" style={fontStyle}>
-                  {viewingPhotoNote.length}/500
-                </p>
-                <div className="flex justify-end gap-2">
+      {selectedPhotoForView && (() => {
+        const roomPhotos = (propertyPhotos[String(selectedPhotoForView.room_id)] ?? []) as Photo[];
+        const currentIndex = roomPhotos.findIndex((p) => p.id === selectedPhotoForView.id);
+        const canGoPrevious = currentIndex > 0;
+        const canGoNext = currentIndex >= 0 && currentIndex < roomPhotos.length - 1;
+        const goToPrevious = () => {
+          if (!canGoPrevious) return;
+          const prev = roomPhotos[currentIndex - 1];
+          setSelectedPhotoForView(prev);
+          setViewingPhotoNote(prev.note ?? "");
+        };
+        const goToNext = () => {
+          if (!canGoNext) return;
+          const next = roomPhotos[currentIndex + 1];
+          setSelectedPhotoForView(next);
+          setViewingPhotoNote(next.note ?? "");
+        };
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-8 my-auto max-h-[90vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => { setSelectedPhotoForView(null); }}
+                className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/60 transition-colors"
+                aria-label="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedPhotoForView.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mb-6 min-w-0"
+                >
+                  {photoUrls[String(selectedPhotoForView.id)] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoUrls[String(selectedPhotoForView.id)]}
+                      alt=""
+                      className="block w-full max-w-full h-auto object-contain"
+                      style={{ maxHeight: "50vh", borderRadius: "0.75rem" }}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center text-gray-400 py-12">Loading image…</div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedPhotoForView.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isLocked ? (
+                    <p className="text-[#414651] text-sm min-h-[2rem]" style={fontStyle}>
+                      {selectedPhotoForView.note ?? "No note"}
+                    </p>
+                  ) : (
+                    <>
+                      <textarea
+                        value={viewingPhotoNote}
+                        onChange={(e) => setViewingPhotoNote(e.target.value.slice(0, 500))}
+                        placeholder="Add a note for this photo"
+                        maxLength={500}
+                        rows={3}
+                        className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-2 resize-none"
+                        style={fontStyle}
+                      />
+                      <p className="text-[#94A3B8] text-xs mb-3" style={fontStyle}>
+                        {viewingPhotoNote.length}/500
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPhotoForView(null)}
+                          className="py-2 px-4 rounded-full border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
+                          style={fontStyle}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={savePhotoNote}
+                          disabled={viewingPhotoNoteSaving}
+                          className="py-2 px-4 rounded-full bg-[#008bff] text-white font-medium text-sm disabled:opacity-50"
+                          style={{ ...fontStyle, color: "#ffffff" }}
+                        >
+                          {viewingPhotoNoteSaving ? "Saving…" : "Save note"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+              <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-200">
+                {canGoPrevious && (
                   <button
                     type="button"
-                    onClick={() => setSelectedPhotoForView(null)}
-                    className="py-2 px-4 rounded-full border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
+                    onClick={goToPrevious}
+                    className="py-2 px-3 text-sm font-medium text-[#008bff] hover:underline"
                     style={fontStyle}
                   >
-                    Cancel
+                    ← Previous
                   </button>
+                )}
+                {canGoNext && (
                   <button
                     type="button"
-                    onClick={savePhotoNote}
-                    disabled={viewingPhotoNoteSaving}
-                    className="py-2 px-4 rounded-full bg-[#008bff] text-white font-medium text-sm disabled:opacity-50"
-                    style={{ ...fontStyle, color: "#ffffff" }}
+                    onClick={goToNext}
+                    className="py-2 px-3 text-sm font-medium text-[#008bff] hover:underline"
+                    style={fontStyle}
                   >
-                    {viewingPhotoNoteSaving ? "Saving…" : "Save note"}
+                    Next →
                   </button>
-                </div>
-              </>
-            )}
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {roomToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -979,25 +1102,85 @@ export function ReportWorkspaceClient({
         aria-hidden
       />
 
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/properties/${property.id}`}
-            className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-            aria-label="Back to property"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
-            {getReportTypeLabel(reportType)}
-          </h1>
-        </div>
-      </header>
+      {reportType === "check-out" && !checkoutAtLocal ? (
+        <>
+          <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/properties/${property.id}`}
+                className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+                style={{ WebkitTapHighlightColor: "transparent" }}
+                aria-label="Back to property"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
+                {getReportTypeLabel(reportType)}
+              </h1>
+            </div>
+          </header>
+          <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full overflow-y-auto">
+            <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-6">
+              <p className="text-[#0F172A] font-medium mb-2" style={fontStyle}>
+                What is your check-out date?
+              </p>
+              {checkoutDateError && (
+                <div className="mb-3 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+                  {checkoutDateError}
+                </div>
+              )}
+              <input
+                type="date"
+                value={checkoutDateInput}
+                onChange={(e) => setCheckoutDateInput(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-lg border border-gray-200 text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-4"
+                style={fontStyle}
+              />
+              <button
+                type="button"
+                onClick={handleSaveCheckoutDate}
+                disabled={checkoutDateSaving}
+                className="w-full py-3 rounded-lg font-medium text-base bg-[#008bff] text-white hover:bg-[#0077e6] disabled:opacity-50"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {checkoutDateSaving ? "Saving…" : "Continue"}
+              </button>
+            </div>
+          </main>
+        </>
+      ) : (
+        <>
+          <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/properties/${property.id}`}
+                className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                aria-label="Back to property"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
+                {getReportTypeLabel(reportType)}
+              </h1>
+            </div>
+          </header>
 
-      <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full overflow-y-auto">
+          <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full overflow-y-auto">
+        {isLocked && (
+          <div className="mb-4 py-2.5 px-3 rounded-lg bg-[#eff6ff] text-[#008bff] text-sm border border-[#008bff] flex items-center gap-2" style={fontStyle}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#008bff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>This report has been completed and is locked.</span>
+          </div>
+        )}
         {detailsError && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
             {detailsError}
@@ -1033,17 +1216,60 @@ export function ReportWorkspaceClient({
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
-              <span className="text-lg shrink-0" aria-hidden>📅</span>
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                  Move-In Date
-                </p>
-                <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                  {formatMoveInDate(property.move_in_date)}
-                </p>
+            {reportType === "check-in" && (
+              <>
+                <div className="flex gap-3">
+                  <span className="text-lg shrink-0" aria-hidden>📅</span>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
+                      Tenancy Start Date
+                    </p>
+                    <p className="text-[#0F172A] font-medium" style={fontStyle}>
+                      {formatMoveInDate(property.tenancy_start_date)}
+                    </p>
+                  </div>
+                </div>
+                {moveinDateLocal && (
+                  <div className="flex gap-3">
+                    <span className="text-lg shrink-0" aria-hidden>📅</span>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
+                        Move-In Date
+                      </p>
+                      <p className="text-[#0F172A] font-medium" style={fontStyle}>
+                        {moveinDateLocal}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {reportType === "check-out" && checkoutAtLocal && (
+              <div className="flex gap-3">
+                <span className="text-lg shrink-0" aria-hidden>📅</span>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
+                    Check-Out Date
+                  </p>
+                  <p className="text-[#0F172A] font-medium" style={fontStyle}>
+                    {checkoutAtLocal}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+            {initialReportCompleted && completedAt && (
+              <div className="flex gap-3">
+                <span className="text-lg shrink-0" aria-hidden>📄</span>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
+                    Report Completed
+                  </p>
+                  <p className="text-[#0F172A] font-medium" style={fontStyle}>
+                    {formatReportCompleted(completedAt)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1053,14 +1279,14 @@ export function ReportWorkspaceClient({
               Progress
             </p>
             <p className="text-[#6B7280] text-sm" style={fontStyle}>
-              {completedCount} of {rooms.length} rooms completed
+              {effectiveCompletedCount} of {rooms.length} rooms completed
             </p>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-[#008bff] rounded-full transition-all duration-300"
               style={{
-                width: rooms.length ? `${(completedCount / rooms.length) * 100}%` : "0%",
+                width: rooms.length ? `${(effectiveCompletedCount / rooms.length) * 100}%` : "0%",
               }}
             />
           </div>
@@ -1070,7 +1296,7 @@ export function ReportWorkspaceClient({
           {rooms.map((room) => {
             const rid = String(room.id);
             const photos = propertyPhotos[rid] ?? [];
-            const isComplete = roomComplete[rid];
+            const isComplete = isLocked || roomComplete[rid];
             const roomName = room.display_name || room.room_type || "Room";
 
             return (
@@ -1231,6 +1457,8 @@ export function ReportWorkspaceClient({
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
     </PageWrapper>
   );
