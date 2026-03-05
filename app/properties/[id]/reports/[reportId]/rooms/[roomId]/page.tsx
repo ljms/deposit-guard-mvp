@@ -26,7 +26,6 @@ export default async function ReportRoomPage({
     .single();
 
   if (propertyError || !property) {
-    console.log("[report room page] notFound: property", { id, reportId, roomId, propertyError: propertyError?.message ?? propertyError, hasProperty: !!property });
     notFound();
   }
 
@@ -38,15 +37,6 @@ export default async function ReportRoomPage({
     .single();
 
   if (reportError || !report || String(report.property_id) !== String(id)) {
-    console.log("[report room page] notFound: report", {
-      id,
-      reportId,
-      roomId,
-      reportError: reportError?.message ?? reportError,
-      hasReport: !!report,
-      reportPropertyId: report ? String(report.property_id) : null,
-      propertyIdMatch: report ? String(report.property_id) === String(id) : false,
-    });
     notFound();
   }
 
@@ -61,7 +51,6 @@ export default async function ReportRoomPage({
     .single();
 
   if (roomError || !room) {
-    console.log("[report room page] notFound: room", { id, reportId, roomId, roomError: roomError?.message ?? roomError, hasRoom: !!room });
     notFound();
   }
 

@@ -26,12 +26,6 @@ export default async function ReportPage({ params }: ReportPageProps) {
     .single();
 
   if (propertyError || !property) {
-    console.log("[report page] notFound: property fetch failed", {
-      id,
-      reportId,
-      propertyError: propertyError?.message ?? propertyError,
-      hasProperty: !!property,
-    });
     notFound();
   }
 
@@ -43,14 +37,6 @@ export default async function ReportPage({ params }: ReportPageProps) {
     .single();
 
   if (reportError || !report || String(report.property_id) !== String(id)) {
-    console.log("[report page] notFound: report fetch failed or mismatch", {
-      id,
-      reportId,
-      reportError: reportError?.message ?? reportError,
-      hasReport: !!report,
-      reportPropertyId: report ? String(report.property_id) : null,
-      propertyIdMatch: report ? String(report.property_id) === String(id) : false,
-    });
     notFound();
   }
 

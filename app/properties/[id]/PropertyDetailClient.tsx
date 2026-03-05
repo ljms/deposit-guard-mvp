@@ -478,10 +478,17 @@ export function PropertyDetailClient({
         ) : (
           <div className="flex flex-col gap-4">
             {inProgressReport && (
-              <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative">
+              <Link
+                href={`/properties/${property.id}/reports/${inProgressReport.id}`}
+                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
+              >
                 <button
                   type="button"
-                  onClick={openDeleteConfirmModal}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openDeleteConfirmModal();
+                  }}
                   disabled={deletingInProgress}
                   className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
                   aria-label="Delete report"
@@ -506,15 +513,14 @@ export function PropertyDetailClient({
                   <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
                     {photoCount} Photos • Started
                   </p>
-                  <Link
-                    href={`/properties/${property.id}/reports/${inProgressReport.id}`}
+                  <span
                     className="block w-full py-2.5 rounded-lg bg-[#008bff] text-white text-center font-medium text-sm hover:bg-[#0077e6]"
                     style={{ ...fontStyle, color: "#ffffff" }}
                   >
                     Continue
-                  </Link>
+                  </span>
                 </div>
-              </div>
+              </Link>
             )}
 
             {reportsForThisProperty

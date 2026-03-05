@@ -358,15 +358,20 @@ export function DashboardClient({
             </div>
           ) : (
             sortedItems.map(({ property, report, isCompleted, photoCount, date, reportType }) => (
-              <div
+              <Link
                 key={report.id}
-                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative"
+                href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
+                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
               >
                 {/* Delete (In Progress) or Share (Completed) */}
                 <div className="absolute top-3 right-3">
                   {isCompleted ? (
                     <button
                       type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="p-1.5 text-[#008bff] hover:bg-blue-50 rounded-lg"
                       aria-label="Share"
                     >
@@ -386,7 +391,11 @@ export function DashboardClient({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => openDeletePropertyModal(property)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openDeletePropertyModal(property);
+                      }}
                       disabled={deletingId === property.id}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
                       aria-label="Delete"
@@ -464,16 +473,19 @@ export function DashboardClient({
                 {/* Actions */}
                 {isCompleted ? (
                   <div className="flex gap-2">
-                    <Link
-                      href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
+                    <span
                       className="flex-1 py-2 rounded-lg border border-gray-200 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
                       style={fontStyle}
                     >
                       View
-                    </Link>
+                    </span>
                     <button
                       type="button"
-                      onClick={() => report?.storage_path && handleDownload(report.storage_path)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        report?.storage_path && handleDownload(report.storage_path);
+                      }}
                       disabled={downloadingPath === report?.storage_path}
                       className="flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       style={fontStyle}
@@ -482,15 +494,14 @@ export function DashboardClient({
                     </button>
                   </div>
                 ) : (
-                  <Link
-                    href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
+                  <span
                     className="block w-full py-2.5 rounded-lg bg-[#008bff] text-white text-center font-medium text-sm hover:bg-[#0077e6]"
                     style={{ ...fontStyle, color: "#ffffff" }}
                   >
                     Continue
-                  </Link>
+                  </span>
                 )}
-              </div>
+              </Link>
             ))
           )}
         </div>

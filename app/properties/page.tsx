@@ -3,9 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { PropertiesClient } from "./PropertiesClient";
 
 export default async function PropertiesPage() {
-  // eslint-disable-next-line no-console
-  console.log("[properties/page.tsx] Properties page reached");
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,8 +14,6 @@ export default async function PropertiesPage() {
     console.error("[properties/page.tsx] getUser error:", userError);
   }
   if (!user) {
-    // eslint-disable-next-line no-console
-    console.log("[properties/page.tsx] No user, redirecting to /");
     redirect("/");
   }
 

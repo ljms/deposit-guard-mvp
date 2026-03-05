@@ -25,9 +25,6 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  // Debug: log what Supabase returned
-  console.log("[dashboard/page.tsx] (1) Raw reports from Supabase:", JSON.stringify(reports ?? [], null, 2));
-  console.log("[dashboard/page.tsx] (2) Properties array:", JSON.stringify(properties ?? [], null, 2));
   if (propertiesError) {
     console.error("[dashboard/page.tsx] Properties Supabase error:", propertiesError.message, propertiesError);
   }

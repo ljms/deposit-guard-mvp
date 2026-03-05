@@ -26,12 +26,6 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     .single();
 
   if (propertyError || !property) {
-    // eslint-disable-next-line no-console
-    console.log("[properties/[id]/page.tsx] notFound() triggered: property fetch failed or returned no row", {
-      id,
-      propertyError: propertyError?.message ?? propertyError,
-      hasProperty: Boolean(property),
-    });
     notFound();
   }
 

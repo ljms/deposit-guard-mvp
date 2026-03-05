@@ -693,17 +693,6 @@ export function ReportWorkspaceClient({
             </div>
             {reportType === "check-in" && (
               <>
-                <div className="flex gap-3">
-                  <span className="text-lg shrink-0" aria-hidden>📅</span>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                      Tenancy Start Date
-                    </p>
-                    <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                      {formatMoveInDate(property.tenancy_start_date)}
-                    </p>
-                  </div>
-                </div>
                 {moveinDateLocal && (
                   <div className="flex gap-3">
                     <span className="text-lg shrink-0" aria-hidden>📅</span>
@@ -774,10 +763,6 @@ export function ReportWorkspaceClient({
             const photoCount = photos.length;
             const isComplete = isLocked || photoCount > 0;
             const roomName = room.display_name || room.room_type || "Room";
-            const firstNote = photos.map((p) => p.note).find(Boolean);
-            const notePreview = firstNote
-              ? (String(firstNote).trim().split(/\s+/).slice(0, 8).join(" ") + (String(firstNote).trim().split(/\s+/).length > 8 ? "…" : ""))
-              : null;
 
             const roomHref =
               roomLinkBase === "reports"
@@ -806,11 +791,6 @@ export function ReportWorkspaceClient({
                   <p className="text-sm text-[#6B7280]" style={fontStyle}>
                     {photoCount === 0 ? "0 photos" : photoCount === 1 ? "1 photo" : `${photoCount} photos`}
                   </p>
-                  {notePreview && (
-                    <p className="text-sm text-gray-500 truncate mt-0.5" style={fontStyle}>
-                      {notePreview}
-                    </p>
-                  )}
                 </div>
                 <span className="shrink-0 text-gray-400" aria-hidden>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

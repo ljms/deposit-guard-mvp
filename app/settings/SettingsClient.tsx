@@ -31,6 +31,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
 
   async function handleUpdateEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +87,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
 
   function openDeleteAccountModal() {
     setDeleteError(null);
+    setDeletePassword('');
     setShowDeleteAccountModal(true);
   }
 
@@ -93,6 +95,15 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
     setDeleteError(null);
     setDeleteLoading(true);
     try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: initialEmail,
+        password: deletePassword,
+      });
+      if (signInError) {
+        setDeleteError('Incorrect password. Please try again.');
+        setDeleteLoading(false);
+        return;
+      }
       const res = await fetch('/api/account/delete', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -270,13 +281,35 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
               <p className="text-sm text-[#414651] mb-4" style={fontStyle}>
                 Are you sure you want to delete your account? This action cannot be undone and will permanently delete:
               </p>
-              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-100">
+              <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-100">
                 <ul className="list-disc list-inside text-sm text-red-600 space-y-1.5" style={fontStyle}>
                   <li>All your personal data</li>
                   <li>Your saved preferences</li>
                   <li>Access to all services</li>
                 </ul>
               </div>
+              <label className="block mb-4">
+                <span className="text-sm font-medium text-[#0F172A] mb-1.5 block" style={fontStyle}>
+                  Enter your password to confirm
+                </span>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    if (deleteError) setDeleteError(null);
+                  }}
+                  placeholder="Password"
+                  className={inputClass}
+                  style={fontStyle}
+                  autoComplete="current-password"
+                />
+              </label>
+              {deleteError && (
+                <p className="text-sm text-red-600 mb-4" style={fontStyle}>
+                  {deleteError}
+                </p>
+              )}
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -289,7 +322,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
                 <button
                   type="button"
                   onClick={confirmDeleteAccount}
-                  disabled={deleteLoading}
+                  disabled={deleteLoading || !deletePassword.trim()}
                   className="flex-[2] py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                   style={{ ...fontStyle, color: '#ffffff' }}
                 >
