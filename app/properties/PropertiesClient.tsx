@@ -28,6 +28,7 @@ type Property = {
 type PropertiesClientProps = {
   properties: Property[];
   roomCounts: Record<string, number>;
+  reportCounts: Record<string, number>;
 };
 
 function formatAddress(p: Property): string {
@@ -40,17 +41,7 @@ function formatAddress(p: Property): string {
   return parts.join(", ");
 }
 
-function formatMoveInDate(iso: string | null | undefined): string {
-  if (!iso) return "Not specified";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-export function PropertiesClient({ properties, roomCounts }: PropertiesClientProps) {
+export function PropertiesClient({ properties, roomCounts, reportCounts }: PropertiesClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false);
@@ -251,14 +242,15 @@ export function PropertiesClient({ properties, roomCounts }: PropertiesClientPro
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-3">
-                    <span className="text-lg shrink-0" aria-hidden>📅</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg shrink-0" aria-hidden>📷</span>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                        Tenancy Start Date
-                      </p>
-                      <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                        {formatMoveInDate(property.tenancy_start_date)}
+                      <p className="text-gray-900 font-medium pt-1" style={fontStyle}>
+                        {(reportCounts[String(property.id)] ?? 0) === 0
+                          ? "No reports yet"
+                          : (reportCounts[String(property.id)] ?? 0) === 1
+                            ? "1 report"
+                            : `${reportCounts[String(property.id)]} reports`}
                       </p>
                     </div>
                   </div>

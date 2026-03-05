@@ -35,16 +35,27 @@ export default async function PropertiesPage() {
 
   const propertyIds = (properties ?? []).map((p) => p.id);
   const roomCounts: Record<string, number> = {};
+  const reportCounts: Record<string, number> = {};
 
   if (propertyIds.length > 0) {
-    const { data: roomData } = await supabase
-      .from("rooms")
-      .select("property_id")
-      .in("property_id", propertyIds)
-      .eq("user_id", user.id);
+    const [roomResult, reportsResult] = await Promise.all([
+      supabase
+        .from("rooms")
+        .select("property_id")
+        .in("property_id", propertyIds)
+        .eq("user_id", user.id),
+      supabase
+        .from("reports")
+        .select("property_id")
+        .eq("user_id", user.id)
+        .in("property_id", propertyIds),
+    ]);
 
-    (roomData ?? []).forEach((r: { property_id: string }) => {
+    (roomResult.data ?? []).forEach((r: { property_id: string }) => {
       roomCounts[r.property_id] = (roomCounts[r.property_id] ?? 0) + 1;
+    });
+    (reportsResult.data ?? []).forEach((r: { property_id: string }) => {
+      reportCounts[r.property_id] = (reportCounts[r.property_id] ?? 0) + 1;
     });
   }
 
@@ -52,6 +63,7 @@ export default async function PropertiesPage() {
     <PropertiesClient
       properties={properties ?? []}
       roomCounts={roomCounts}
+      reportCounts={reportCounts}
     />
   );
 }

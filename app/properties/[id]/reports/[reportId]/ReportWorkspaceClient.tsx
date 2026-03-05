@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -68,6 +68,8 @@ type ReportWorkspaceClientProps = {
   moveinDateLocal?: string | null;
   rooms: Room[];
   photosData: Photo[];
+  /** When "reports", room cards link to /reports/[reportId]/rooms/[roomId]. Otherwise /properties/[id]/reports/[reportId]/rooms/[roomId]. */
+  roomLinkBase?: "reports";
 };
 
 function formatAddress(p: Property): string {
@@ -114,10 +116,10 @@ export function ReportWorkspaceClient({
   moveinDateLocal,
   rooms: initialRooms,
   photosData,
+  roomLinkBase,
 }: ReportWorkspaceClientProps) {
   const router = useRouter();
   const supabase = createClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [checkoutDateInput, setCheckoutDateInput] = useState("");
   const [checkoutDateSaving, setCheckoutDateSaving] = useState(false);
@@ -134,255 +136,21 @@ export function ReportWorkspaceClient({
     }
     return byRoom;
   });
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  const [roomComplete, setRoomComplete] = useState<Record<string, boolean>>({});
-  const [roomCompleteError, setRoomCompleteError] = useState<string | null>(null);
-  const [photoUploadingFor, setPhotoUploadingFor] = useState<string | null>(null);
-  const [activeCameraRoomId, setActiveCameraRoomId] = useState<string | null>(null);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
-  const [photoStep, setPhotoStep] = useState<'idle' | 'preview'>('idle');
-  const [photoNote, setPhotoNote] = useState('');
-  const [previewRoomId, setPreviewRoomId] = useState<string | null>(null);
-  const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
-  const [photoToDelete, setPhotoToDelete] = useState<Photo | null>(null);
   const [addRoomModalOpen, setAddRoomModalOpen] = useState(false);
   const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
   const [addRoomCustomName, setAddRoomCustomName] = useState('');
-  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
-  const [editingRoomName, setEditingRoomName] = useState('');
-  const [selectedPhotoForView, setSelectedPhotoForView] = useState<Photo | null>(null);
-  const [viewingPhotoNote, setViewingPhotoNote] = useState('');
-  const [viewingPhotoNoteSaving, setViewingPhotoNoteSaving] = useState(false);
   const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
   const isLocked = reportCompleted;
 
-  useEffect(() => {
-    const loadUrls = async () => {
-      const urlMap: Record<string, string> = {};
-      for (const p of photosData) {
-        const { data } = await supabase.storage
-          .from("photos")
-          .createSignedUrl(p.storage_path, 3600);
-        if (data?.signedUrl) urlMap[String(p.id)] = data.signedUrl;
-      }
-      setPhotoUrls(urlMap);
-    };
-    loadUrls();
-  }, [photosData, supabase.storage]);
-
-  const completedCount = rooms.filter((r) => roomComplete[String(r.id)]).length;
+  const completedCount = rooms.filter(
+    (r) => (propertyPhotos[String(r.id)] ?? []).length > 0
+  ).length;
   const effectiveCompletedCount = isLocked ? rooms.length : completedCount;
   const allRoomsComplete = () => {
     if (rooms.length === 0) return false;
-    return rooms.every((r) => roomComplete[String(r.id)]);
-  };
-
-  const openCameraForRoom = (roomId: string) => {
-    setRoomCompleteError(null);
-    setActiveCameraRoomId(roomId);
-    fileInputRef.current?.click();
-  };
-
-  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const roomId = activeCameraRoomId;
-    if (!roomId || !property.id) return;
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) {
-      setActiveCameraRoomId(null);
-      e.target.value = "";
-      return;
-    }
-    setDetailsError(null);
-    setPreviewFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setPreviewDataUrl(reader.result as string);
-    reader.readAsDataURL(file);
-    setPhotoStep("preview");
-    setPreviewRoomId(roomId);
-    setActiveCameraRoomId(null);
-    e.target.value = "";
-  };
-
-  const retakePhoto = () => {
-    setPreviewFile(null);
-    setPreviewDataUrl(null);
-    setPhotoStep("idle");
-    setPhotoNote("");
-    setPreviewRoomId(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const savePhotoFromPreview = async () => {
-    const roomId = previewRoomId;
-    if (!roomId || !property.id || !previewFile) return;
-    setPhotoUploadingFor(roomId);
-    setDetailsError(null);
-    try {
-      const timestamp = Date.now();
-      const storagePath = `${userId}/${property.id}/${roomId}/${timestamp}.jpg`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from("photos")
-        .upload(storagePath, previewFile, { contentType: "image/jpeg", upsert: false });
-
-      if (uploadErr) {
-        setDetailsError(uploadErr.message ?? "Failed to upload photo.");
-        setPhotoUploadingFor(null);
-        retakePhoto();
-        return;
-      }
-
-      const takenAt = new Date().toISOString();
-      const { data: inserted, error: insertErr } = await supabase
-        .from("photos")
-        .insert({
-          room_id: roomId,
-          property_id: property.id,
-          user_id: userId,
-          storage_path: storagePath,
-          note: photoNote.trim() || null,
-          taken_at: takenAt,
-        })
-        .select("id, storage_path, room_id")
-        .single();
-
-      if (insertErr) {
-        setDetailsError(insertErr.message ?? "Failed to save photo.");
-        setPhotoUploadingFor(null);
-        retakePhoto();
-        return;
-      }
-
-      const photo = inserted as Photo;
-      setPropertyPhotos((prev) => ({
-        ...prev,
-        [roomId]: [photo, ...(prev[roomId] ?? [])],
-      }));
-
-      const { data: urlData } = await supabase.storage
-        .from("photos")
-        .createSignedUrl(storagePath, 3600);
-      if (urlData?.signedUrl) {
-        setPhotoUrls((prev) => ({ ...prev, [String(photo.id)]: urlData.signedUrl }));
-      }
-      retakePhoto();
-    } catch {
-      setDetailsError("Something went wrong.");
-    } finally {
-      setPhotoUploadingFor(null);
-    }
-  };
-
-  const handleDeletePhotoClick = (photo: Photo) => {
-    setPhotoToDelete(photo);
-  };
-
-  const handleConfirmDeletePhoto = async () => {
-    const photo = photoToDelete;
-    if (!photo) return;
-    setPhotoToDelete(null);
-    setDetailsError(null);
-    try {
-      await supabase.storage.from("photos").remove([photo.storage_path]);
-      const { error: deleteErr } = await supabase.from("photos").delete().eq("id", photo.id);
-      if (deleteErr) {
-        setDetailsError(deleteErr.message ?? "Failed to delete photo.");
-        return;
-      }
-      const rid = String(photo.room_id);
-      setPropertyPhotos((prev) => ({
-        ...prev,
-        [rid]: (prev[rid] ?? []).filter((p) => p.id !== photo.id),
-      }));
-      setPhotoUrls((prev) => {
-        const next = { ...prev };
-        delete next[String(photo.id)];
-        return next;
-      });
-    } catch {
-      setDetailsError("Something went wrong.");
-    }
-  };
-
-  const savePhotoNote = async () => {
-    if (!selectedPhotoForView) return;
-    setViewingPhotoNoteSaving(true);
-    setDetailsError(null);
-    try {
-      const { error } = await supabase
-        .from("photos")
-        .update({ note: viewingPhotoNote || null })
-        .eq("id", selectedPhotoForView.id)
-        .eq("user_id", userId);
-      if (error) {
-        setDetailsError(error.message ?? "Failed to save note.");
-        return;
-      }
-      const rid = String(selectedPhotoForView.room_id);
-      setPropertyPhotos((prev) => ({
-        ...prev,
-        [rid]: (prev[rid] ?? []).map((p) =>
-          p.id === selectedPhotoForView.id ? { ...p, note: viewingPhotoNote || null } : p
-        ),
-      }));
-      setSelectedPhotoForView(null);
-    } catch {
-      setDetailsError("Something went wrong.");
-    } finally {
-      setViewingPhotoNoteSaving(false);
-    }
-  };
-
-  const handleRoomCompleteChange = (roomId: string, checked: boolean) => {
-    setRoomCompleteError(null);
-    const photos = propertyPhotos[roomId] ?? [];
-    if (checked && photos.length === 0) {
-      setRoomCompleteError("Room cannot be marked complete. At least one photo is required.");
-      setRoomComplete((prev) => ({ ...prev, [roomId]: false }));
-      return;
-    }
-    setRoomComplete((prev) => ({ ...prev, [roomId]: checked }));
-  };
-
-  const handleDeleteRoomClick = (roomId: string) => {
-    setRoomToDelete(roomId);
-  };
-
-  const handleConfirmDeleteRoom = async () => {
-    const roomId = roomToDelete;
-    if (!roomId || !property.id) return;
-    setDetailsError(null);
-    try {
-      const photos = propertyPhotos[roomId] ?? [];
-      for (const p of photos) {
-        await supabase.storage.from("photos").remove([p.storage_path]);
-      }
-      await supabase.from("photos").delete().eq("room_id", roomId);
-      const { error } = await supabase.from("rooms").delete().eq("id", roomId);
-      if (error) {
-        setDetailsError(error.message ?? "Failed to delete room.");
-        setRoomToDelete(null);
-        return;
-      }
-      setRooms((prev) => prev.filter((r) => String(r.id) !== roomId));
-      setPropertyPhotos((prev) => {
-        const next = { ...prev };
-        delete next[roomId];
-        return next;
-      });
-      setRoomComplete((prev) => {
-        const next = { ...prev };
-        delete next[roomId];
-        return next;
-      });
-    } catch {
-      setDetailsError("Something went wrong.");
-    } finally {
-      setRoomToDelete(null);
-    }
+    return rooms.every((r) => (propertyPhotos[String(r.id)] ?? []).length > 0);
   };
 
   const handleAddRoomClick = () => {
@@ -432,42 +200,9 @@ export function ReportWorkspaceClient({
     }
   };
 
-  const handleRenameRoomStart = (room: Room) => {
-    setEditingRoomId(String(room.id));
-    setEditingRoomName(room.display_name || room.room_type || "Room");
-  };
-
-  const handleRenameRoomSave = async () => {
-    if (!editingRoomId || !editingRoomName.trim()) {
-      setEditingRoomId(null);
-      setEditingRoomName("");
-      return;
-    }
-    const trimmed = editingRoomName.trim();
-    setDetailsError(null);
-    try {
-      const { error } = await supabase
-        .from("rooms")
-        .update({ display_name: trimmed })
-        .eq("id", editingRoomId);
-      if (error) {
-        setDetailsError(error.message ?? "Failed to rename room.");
-        return;
-      }
-      setRooms((prev) =>
-        prev.map((r) => (String(r.id) === editingRoomId ? { ...r, display_name: trimmed } : r))
-      );
-    } catch {
-      setDetailsError("Something went wrong.");
-    } finally {
-      setEditingRoomId(null);
-      setEditingRoomName("");
-    }
-  };
-
   async function generateReport() {
     if (!allRoomsComplete()) {
-      setDetailsError("Please mark all rooms as complete before generating your report.");
+      setDetailsError("Add at least one photo to each room before generating your report.");
       return;
     }
     const totalPhotos = Object.values(propertyPhotos).flat().length;
@@ -778,250 +513,6 @@ export function ReportWorkspaceClient({
   return (
     <PageWrapper>
     <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-24">
-      {photoStep === "preview" && previewDataUrl && !isLocked && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-6 my-auto max-h-[90vh] overflow-y-auto">
-            <p className="text-[#0F172A] font-medium text-sm mb-3" style={fontStyle}>
-              Preview
-            </p>
-            <div className="rounded-lg overflow-hidden mb-4 min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewDataUrl}
-                alt="Preview"
-                className="block w-full max-w-full h-auto object-contain rounded-xl"
-                style={{ maxHeight: "50vh" }}
-              />
-            </div>
-            <p className="text-[#0F172A] font-medium text-sm mb-2" style={fontStyle}>
-              Add an optional note
-            </p>
-            <input
-              type="text"
-              value={photoNote}
-              onChange={(e) => setPhotoNote(e.target.value.slice(0, 500))}
-              placeholder="e.g. Scratch on wall near door, approximately 15cm long"
-              maxLength={500}
-              className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-1"
-              style={fontStyle}
-            />
-            <p className="text-[#94A3B8] text-xs mb-4" style={fontStyle}>
-              {photoNote.length}/500
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={retakePhoto}
-                className="flex-1 py-2.5 rounded-full border border-gray-200 bg-white text-[#0F172A] font-medium text-sm"
-                style={fontStyle}
-              >
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={savePhotoFromPreview}
-                disabled={photoUploadingFor !== null}
-                className="flex-1 py-2.5 rounded-full bg-[#008bff] text-white font-medium text-sm disabled:opacity-50"
-                style={{ ...fontStyle, color: "#ffffff" }}
-              >
-                {photoUploadingFor ? "Saving…" : "Save Photo"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedPhotoForView && (() => {
-        const roomPhotos = (propertyPhotos[String(selectedPhotoForView.room_id)] ?? []) as Photo[];
-        const currentIndex = roomPhotos.findIndex((p) => p.id === selectedPhotoForView.id);
-        const canGoPrevious = currentIndex > 0;
-        const canGoNext = currentIndex >= 0 && currentIndex < roomPhotos.length - 1;
-        const goToPrevious = () => {
-          if (!canGoPrevious) return;
-          const prev = roomPhotos[currentIndex - 1];
-          setSelectedPhotoForView(prev);
-          setViewingPhotoNote(prev.note ?? "");
-        };
-        const goToNext = () => {
-          if (!canGoNext) return;
-          const next = roomPhotos[currentIndex + 1];
-          setSelectedPhotoForView(next);
-          setViewingPhotoNote(next.note ?? "");
-        };
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
-            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-8 my-auto max-h-[90vh] overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => { setSelectedPhotoForView(null); }}
-                className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/60 transition-colors"
-                aria-label="Close"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedPhotoForView.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="mb-6 min-w-0"
-                >
-                  {photoUrls[String(selectedPhotoForView.id)] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photoUrls[String(selectedPhotoForView.id)]}
-                      alt=""
-                      className="block w-full max-w-full h-auto object-contain"
-                      style={{ maxHeight: "50vh", borderRadius: "0.75rem" }}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center text-gray-400 py-12">Loading image…</div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedPhotoForView.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {isLocked ? (
-                    <p className="text-[#414651] text-sm min-h-[2rem]" style={fontStyle}>
-                      {selectedPhotoForView.note ?? "No note"}
-                    </p>
-                  ) : (
-                    <>
-                      <textarea
-                        value={viewingPhotoNote}
-                        onChange={(e) => setViewingPhotoNote(e.target.value.slice(0, 500))}
-                        placeholder="Add a note for this photo"
-                        maxLength={500}
-                        rows={3}
-                        className="w-full py-2.5 px-3 rounded-lg border border-[#E5E7EB] text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-2 resize-none"
-                        style={fontStyle}
-                      />
-                      <p className="text-[#94A3B8] text-xs mb-3" style={fontStyle}>
-                        {viewingPhotoNote.length}/500
-                      </p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPhotoForView(null)}
-                          className="py-2 px-4 rounded-full border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
-                          style={fontStyle}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={savePhotoNote}
-                          disabled={viewingPhotoNoteSaving}
-                          className="py-2 px-4 rounded-full bg-[#008bff] text-white font-medium text-sm disabled:opacity-50"
-                          style={{ ...fontStyle, color: "#ffffff" }}
-                        >
-                          {viewingPhotoNoteSaving ? "Saving…" : "Save note"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-              <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-200">
-                {canGoPrevious && (
-                  <button
-                    type="button"
-                    onClick={goToPrevious}
-                    className="py-2 px-3 text-sm font-medium text-[#008bff] hover:underline"
-                    style={fontStyle}
-                  >
-                    ← Previous
-                  </button>
-                )}
-                {canGoNext && (
-                  <button
-                    type="button"
-                    onClick={goToNext}
-                    className="py-2 px-3 text-sm font-medium text-[#008bff] hover:underline"
-                    style={fontStyle}
-                  >
-                    Next →
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {roomToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
-              Delete Room
-            </h2>
-            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
-              Are you sure you want to delete this room? This will also delete all photos in it.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setRoomToDelete(null)}
-                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:opacity-90 transition-opacity"
-                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteRoom}
-                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors"
-                style={{ ...fontStyle, color: "#ffffff" }}
-              >
-                Yes, Delete Room
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {photoToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
-              Delete Photo
-            </h2>
-            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
-              Are you sure you want to delete this photo?
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setPhotoToDelete(null)}
-                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:bg-opacity-90 transition-opacity"
-                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeletePhoto}
-                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors"
-                style={{ ...fontStyle, color: "#ffffff" }}
-              >
-                Yes, Delete Photo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {addRoomModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto">
@@ -1091,16 +582,6 @@ export function ReportWorkspaceClient({
           </div>
         </div>
       )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handlePhotoFileChange}
-        className="hidden"
-        aria-hidden
-      />
 
       {reportType === "check-out" && !checkoutAtLocal ? (
         <>
@@ -1186,12 +667,6 @@ export function ReportWorkspaceClient({
             {detailsError}
           </div>
         )}
-        {roomCompleteError && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
-            {roomCompleteError}
-          </div>
-        )}
-
         <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5 mb-6">
           <div className="flex flex-col gap-4">
             <div className="flex gap-3">
@@ -1292,125 +767,57 @@ export function ReportWorkspaceClient({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 mb-4 max-h-[50vh] overflow-y-auto">
+        <div className="flex flex-col gap-3 mb-4">
           {rooms.map((room) => {
             const rid = String(room.id);
             const photos = propertyPhotos[rid] ?? [];
-            const isComplete = isLocked || roomComplete[rid];
+            const photoCount = photos.length;
+            const isComplete = isLocked || photoCount > 0;
             const roomName = room.display_name || room.room_type || "Room";
+            const firstNote = photos.map((p) => p.note).find(Boolean);
+            const notePreview = firstNote
+              ? (String(firstNote).trim().split(/\s+/).slice(0, 8).join(" ") + (String(firstNote).trim().split(/\s+/).length > 8 ? "…" : ""))
+              : null;
 
+            const roomHref =
+              roomLinkBase === "reports"
+                ? `/reports/${reportId}/rooms/${rid}`
+                : `/properties/${property.id}/reports/${reportId}/rooms/${rid}`;
             return (
-              <div key={room.id} className="rounded-xl border border-gray-200 p-4 bg-white relative">
-                <button
-                  type="button"
-                  onClick={() => handleDeleteRoomClick(rid)}
-                  disabled={isLocked}
-                  className="absolute top-3 right-3 p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                  aria-label="Delete room"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    <line x1="10" y1="11" x2="10" y2="17" />
-                    <line x1="14" y1="11" x2="14" y2="17" />
-                  </svg>
-                </button>
-
-                {editingRoomId === rid ? (
-                  <input
-                    type="text"
-                    value={editingRoomName}
-                    onChange={(e) => setEditingRoomName(e.target.value)}
-                    onBlur={handleRenameRoomSave}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleRenameRoomSave();
-                    }}
-                    autoFocus
-                    className="font-semibold text-[#0F172A] text-base pr-8 w-full py-1 px-2 -mx-2 rounded border border-[#008bff] outline-none"
-                    style={fontStyle}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => !isLocked && handleRenameRoomStart(room)}
-                    disabled={isLocked}
-                    className="font-semibold text-[#0F172A] text-base pr-8 w-full text-left py-0 border-0 bg-transparent cursor-pointer disabled:cursor-default hover:underline disabled:no-underline"
-                    style={fontStyle}
-                  >
+              <Link
+                key={room.id}
+                href={roomHref}
+                className="rounded-xl border border-gray-200 p-4 bg-white flex items-center gap-3 active:opacity-75 transition-opacity tap-feedback-touch"
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
+                <span className="shrink-0 w-6 h-6 flex items-center justify-center" aria-hidden>
+                  {isComplete ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <span className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                  )}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[#0F172A] text-base" style={fontStyle}>
                     {roomName}
-                  </button>
-                )}
-
-                <div className="grid grid-cols-3 gap-2 my-3">
-                  {photos.map((photo) => (
-                    <div
-                      key={photo.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => { setSelectedPhotoForView(photo); setViewingPhotoNote(photo.note ?? ''); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPhotoForView(photo); setViewingPhotoNote(photo.note ?? ''); } }}
-                      className="relative w-full overflow-hidden rounded-lg bg-gray-100 cursor-pointer"
-                      style={{ paddingBottom: '100%' }}
-                    >
-                      {photoUrls[String(photo.id)] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={photoUrls[String(photo.id)]}
-                          alt=""
-                          className="absolute top-0 left-0 w-full h-full object-cover object-center"
-                        />
-                      ) : (
-                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                          Loading
-                        </div>
-                      )}
-                      {!isLocked && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePhotoClick(photo); }}
-                          className="absolute top-1 right-1.5 w-4 h-4 flex items-center justify-center bg-white/40 rounded border-0 text-sm cursor-pointer"
-                          aria-label="Delete photo"
-                        >
-                          <span
-                            className="inline-block"
-                            style={{ color: "#ef4444", textShadow: "0 0 2px rgba(0,0,0,1), 0 1px 2px rgba(0,0,0,0.8)" }}
-                          >
-                            X
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  </p>
+                  <p className="text-sm text-[#6B7280]" style={fontStyle}>
+                    {photoCount === 0 ? "0 photos" : photoCount === 1 ? "1 photo" : `${photoCount} photos`}
+                  </p>
+                  {notePreview && (
+                    <p className="text-sm text-gray-500 truncate mt-0.5" style={fontStyle}>
+                      {notePreview}
+                    </p>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => openCameraForRoom(rid)}
-                  disabled={photoUploadingFor === rid || isLocked}
-                  className="w-full py-2.5 rounded-lg bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6] flex items-center justify-center gap-2 mb-3 disabled:opacity-50"
-                  style={{ ...fontStyle, color: "#ffffff" }}
-                >
-                  📷 {photoUploadingFor === rid ? "Uploading…" : "Take Photo"}
-                </button>
-
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isComplete}
-                      onChange={(e) => handleRoomCompleteChange(rid, e.target.checked)}
-                      disabled={isLocked}
-                      className="w-4 h-4 rounded border-gray-300 text-[#008bff] focus:ring-[#008bff]"
-                    />
-                    <span className="text-sm text-[#414651]" style={fontStyle}>
-                      Room Complete
-                    </span>
-                  </label>
-                  <span className="text-sm text-[#6B7280]" style={fontStyle}>
-                    {photos.length} photo{photos.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              </div>
+                <span className="shrink-0 text-gray-400" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </span>
+              </Link>
             );
           })}
         </div>
@@ -1444,13 +851,13 @@ export function ReportWorkspaceClient({
             <button
               type="button"
               onClick={generateReport}
-              disabled={reportGenerating}
+              disabled={reportGenerating || !allRoomsComplete()}
               className={`w-full py-3 rounded-lg font-medium text-base transition-colors ${
-                !reportGenerating
-                  ? "bg-[#008bff] text-white hover:bg-[#0077e6]"
-                  : "bg-gray-400 text-gray-500 cursor-not-allowed"
+                reportGenerating || !allRoomsComplete()
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-[#008bff] text-white hover:bg-[#0077e6]"
               }`}
-              style={{ ...fontStyle, color: !reportGenerating ? "#ffffff" : undefined }}
+              style={{ ...fontStyle, color: reportGenerating || !allRoomsComplete() ? undefined : "#ffffff" }}
             >
               {reportGenerating ? "Generating…" : "Generate Report"}
             </button>
