@@ -1,13 +1,19 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ReportRoomWorkspaceClient } from "./ReportRoomWorkspaceClient";
+import { ReportRoomClient } from "../ReportRoomClient";
 
 type RoomPageProps = {
-  params: Promise<{ reportId: string; roomId: string }>;
+  params: Promise<{ roomId: string }>;
+  searchParams: Promise<{ reportId?: string }>;
 };
 
-export default async function ReportRoomPage({ params }: RoomPageProps) {
-  const { reportId, roomId } = await params;
+export default async function RoomPage({ params, searchParams }: RoomPageProps) {
+  const { roomId } = await params;
+  const { reportId } = await searchParams;
+
+  if (!reportId) {
+    redirect("/dashboard");
+  }
 
   const supabase = await createClient();
   const {
@@ -54,7 +60,7 @@ export default async function ReportRoomPage({ params }: RoomPageProps) {
     .order("taken_at", { ascending: false });
 
   return (
-    <ReportRoomWorkspaceClient
+    <ReportRoomClient
       userId={user.id}
       reportId={reportId}
       propertyId={String(propertyId)}

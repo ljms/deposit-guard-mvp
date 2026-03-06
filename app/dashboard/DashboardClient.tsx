@@ -583,7 +583,7 @@ export function DashboardClient({
               ) : (
                 <Link
                   key={report.id}
-                  href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
+                  href={`/reports/${report?.id ?? property.id}`}
                   className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
                 >
                   {cardContent}

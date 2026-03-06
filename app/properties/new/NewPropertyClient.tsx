@@ -80,6 +80,13 @@ export function NewPropertyClient() {
         return;
       }
 
+      const address = [addressLine1.trim(), addressLine2.trim(), city.trim(), postcode].filter(Boolean).join(', ');
+      fetch('/api/notify/property-created', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, email: user.email ?? '' }),
+      }).catch(() => {});
+
       router.push('/dashboard');
       router.refresh();
     } catch (err) {

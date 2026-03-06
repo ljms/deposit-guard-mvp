@@ -100,6 +100,11 @@ export default function HomePage() {
         setLoading(false);
         return;
       }
+      fetch("/api/notify/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
       router.replace("/dashboard");
       router.refresh();
     } catch {
@@ -128,6 +133,11 @@ export default function HomePage() {
         setLoading(false);
         return;
       }
+      fetch("/api/notify/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
       goTo("verify");
     } catch {
       setError("Something went wrong while creating your account. Please try again.");

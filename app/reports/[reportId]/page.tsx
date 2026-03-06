@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ReportWorkspaceClient } from "@/app/properties/[id]/reports/[reportId]/ReportWorkspaceClient";
+import { ReportWorkspaceClient } from "./ReportWorkspaceClient";
 
 type ReportPageProps = {
   params: Promise<{ reportId: string }>;
@@ -71,7 +71,6 @@ export default async function ReportPage({ params }: ReportPageProps) {
       moveinDateLocal={report?.movein_date_local ?? null}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
-      roomLinkBase="reports"
     />
   );
 }

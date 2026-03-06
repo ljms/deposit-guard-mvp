@@ -67,8 +67,6 @@ type ReportWorkspaceClientProps = {
   moveinDateLocal?: string | null;
   rooms: Room[];
   photosData: Photo[];
-  /** When "reports", room cards link to /reports/[reportId]/rooms/[roomId]. Otherwise /properties/[id]/reports/[reportId]/rooms/[roomId]. */
-  roomLinkBase?: "reports";
 };
 
 function formatAddress(p: Property): string {
@@ -115,7 +113,6 @@ export function ReportWorkspaceClient({
   moveinDateLocal,
   rooms: initialRooms,
   photosData,
-  roomLinkBase,
 }: ReportWorkspaceClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -237,6 +234,12 @@ export function ReportWorkspaceClient({
 
       if (updateError) throw new Error(updateError.message ?? "Failed to update report.");
 
+      fetch("/api/notify/report-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      }).catch(() => {});
+
       setReportCompleted(true);
       router.replace(`/r/${reportId}`);
     } catch (err) {
@@ -306,6 +309,7 @@ export function ReportWorkspaceClient({
   }
 
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
+  const roomHref = (rid: string) => `/rooms/${rid}?reportId=${reportId}`;
 
   return (
     <PageWrapper>
@@ -602,14 +606,10 @@ export function ReportWorkspaceClient({
             const isComplete = isLocked || room.is_complete === true;
             const roomName = room.display_name || room.room_type || "Room";
 
-            const roomHref =
-              roomLinkBase === "reports"
-                ? `/reports/${reportId}/rooms/${rid}`
-                : `/properties/${property.id}/reports/${reportId}/rooms/${rid}`;
             return (
               <Link
                 key={room.id}
-                href={roomHref}
+                href={roomHref(rid)}
                 className="rounded-xl border border-gray-200 p-4 bg-white flex items-center gap-3 active:opacity-75 transition-opacity tap-feedback-touch"
                 style={{ WebkitTapHighlightColor: "transparent" }}
               >

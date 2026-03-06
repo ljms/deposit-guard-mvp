@@ -23,7 +23,7 @@ type Photo = {
   note?: string | null;
 };
 
-type ReportRoomWorkspaceClientProps = {
+type ReportRoomClientProps = {
   userId: string;
   reportId: string;
   propertyId: string;
@@ -34,14 +34,14 @@ type ReportRoomWorkspaceClientProps = {
 
 const REPORT_WORKSPACE_HREF = (reportId: string) => `/reports/${reportId}`;
 
-export function ReportRoomWorkspaceClient({
+export function ReportRoomClient({
   userId,
   reportId,
   propertyId,
   room,
   photosData: initialPhotosData,
   isLocked,
-}: ReportRoomWorkspaceClientProps) {
+}: ReportRoomClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);

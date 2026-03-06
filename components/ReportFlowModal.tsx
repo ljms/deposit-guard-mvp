@@ -307,6 +307,19 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         return;
       }
 
+      const address = [
+        toTitleCase(addressLine1.trim()),
+        city.trim() ? toTitleCase(city.trim()) : null,
+        formatPostcode(postcode),
+      ]
+        .filter(Boolean)
+        .join(", ");
+      fetch("/api/notify/property-created", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, email: user.email ?? "" }),
+      }).catch(() => {});
+
       const propertyId = propertyData.id;
       const insertedRooms: RoomDetail[] = [];
 

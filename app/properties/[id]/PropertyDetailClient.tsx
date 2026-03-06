@@ -203,7 +203,7 @@ export function PropertyDetailClient({
       setShowCheckoutDateModal(false);
       setDownloadingReportId(null);
       router.refresh();
-      router.push(`/properties/${property.id}/reports/${newReport.id}`);
+      router.push(`/reports/${newReport.id}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -535,7 +535,7 @@ export function PropertyDetailClient({
           <div className="flex flex-col gap-4">
             {inProgressReport && (
               <Link
-                href={`/properties/${property.id}/reports/${inProgressReport.id}`}
+                href={`/reports/${inProgressReport.id}`}
                 className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block cursor-pointer"
               >
                 <button
