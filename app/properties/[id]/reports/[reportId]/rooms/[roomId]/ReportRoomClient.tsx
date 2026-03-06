@@ -74,13 +74,24 @@ export function ReportRoomClient({
   const roomName = room.display_name || room.custom_name || room.room_type || "Room";
   const reportWorkspaceHref = `/properties/${propertyId}/reports/${reportId}`;
 
-  function handleRoomCompleteChange(checked: boolean) {
+  async function handleRoomCompleteChange(checked: boolean) {
     setCompleteError(null);
     if (checked && photos.length === 0) {
       setCompleteError("Room cannot be marked complete. At least one photo is required.");
       return;
     }
     setRoomComplete(checked);
+    if (isLocked) return;
+    try {
+      await supabase
+        .from("rooms")
+        .update({ is_complete: checked })
+        .eq("id", room.id)
+        .eq("property_id", propertyId)
+        .eq("user_id", userId);
+    } catch {
+      setRoomComplete(!checked);
+    }
   }
 
   async function handleSaveAndContinue() {
@@ -93,7 +104,6 @@ export function ReportRoomClient({
         .from("rooms")
         .update({
           notes: roomNotes.slice(0, 1000).trim() || null,
-          is_complete: roomComplete,
         })
         .eq("id", room.id)
         .eq("property_id", propertyId)
@@ -207,6 +217,7 @@ export function ReportRoomClient({
         .insert({
           room_id: room.id,
           property_id: property.id,
+          report_id: reportId,
           user_id: userId,
           storage_path: storagePath,
           note: note.trim() || null,

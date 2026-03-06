@@ -48,6 +48,7 @@ export default async function ReportRoomPage({ params }: RoomPageProps) {
     .from("photos")
     .select("id, storage_path, room_id, note")
     .eq("property_id", propertyId)
+    .eq("report_id", reportId)
     .eq("room_id", roomId)
     .eq("user_id", user.id)
     .order("taken_at", { ascending: false });

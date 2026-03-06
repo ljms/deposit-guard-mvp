@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { generateReportPdf } from "@/lib/generateReportPdf";
 import PageWrapper from "@/components/PageWrapper";
 
 const fadeScaleTransition = {
@@ -37,7 +38,7 @@ type PropertyDetailClientProps = {
   property: Property;
   roomCount: number;
   reports: Report[];
-  photoCount: number;
+  photoCountsByReportId: Record<string, number>;
 };
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
@@ -86,7 +87,7 @@ export function PropertyDetailClient({
   property,
   roomCount,
   reports,
-  photoCount,
+  photoCountsByReportId,
 }: PropertyDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -113,7 +114,7 @@ export function PropertyDetailClient({
   const [deletingCompletedReportId, setDeletingCompletedReportId] = useState<
     string | number | null
   >(null);
-  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
+  const [downloadingReportId, setDownloadingReportId] = useState<string | number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [reportPendingDelete, setReportPendingDelete] = useState<Report | null>(
@@ -185,10 +186,22 @@ export function PropertyDetailClient({
         return;
       }
 
+      const { error: roomsResetError } = await supabase
+        .from("rooms")
+        .update({ is_complete: false })
+        .eq("property_id", property.id)
+        .eq("user_id", user.id);
+
+      if (roomsResetError) {
+        setError(roomsResetError.message ?? "Failed to reset room completion state.");
+        setCreateReportLoading(false);
+        return;
+      }
+
       setShowReportTypeModal(false);
       setShowMoveInDateModal(false);
       setShowCheckoutDateModal(false);
-      setDownloadingPath(null);
+      setDownloadingReportId(null);
       router.refresh();
       router.push(`/properties/${property.id}/reports/${newReport.id}`);
     } catch {
@@ -346,23 +359,66 @@ export function PropertyDetailClient({
     }
   }
 
-  async function handleDownload(storagePath: string) {
-    if (!storagePath) return;
+  async function handleDownload(report: Report, prop: Property) {
     setError(null);
-    setDownloadingPath(storagePath);
+    setDownloadingReportId(report.id);
     try {
-      const { data, error: urlError } = await supabase.storage
-        .from("reports")
-        .createSignedUrl(storagePath, 3600);
-      if (urlError || !data?.signedUrl) {
-        setError(urlError?.message ?? "Failed to generate download link.");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Not authenticated.");
         return;
       }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch {
-      setError("Something went wrong while downloading.");
+
+      const { data: reportData, error: reportError } = await supabase
+        .from("reports")
+        .select("id, property_id, status, report_type, completed_at, movein_date_local, created_at")
+        .eq("id", report.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (reportError || !reportData) {
+        setError(reportError?.message ?? "Report not found.");
+        return;
+      }
+
+      const { data: propertyData, error: propertyError } = await supabase
+        .from("properties")
+        .select("id, address_line1, address_line2, city, postcode, property_type, tenancy_start_date")
+        .eq("id", prop.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (propertyError || !propertyData) {
+        setError(propertyError?.message ?? "Property not found.");
+        return;
+      }
+
+      const { data: roomsData } = await supabase
+        .from("rooms")
+        .select("id, display_name, room_type, custom_name, notes")
+        .eq("property_id", prop.id)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      await generateReportPdf(
+        String(reportData.id),
+        propertyData,
+        {
+          id: String(reportData.id),
+          created_at: reportData.created_at,
+          completed_at: reportData.completed_at,
+          report_type: reportData.report_type,
+          movein_date_local: reportData.movein_date_local,
+        },
+        roomsData ?? [],
+        { supabase, userId: user.id }
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong while downloading.");
     } finally {
-      setDownloadingPath(null);
+      setDownloadingReportId(null);
     }
   }
 
@@ -480,7 +536,7 @@ export function PropertyDetailClient({
             {inProgressReport && (
               <Link
                 href={`/properties/${property.id}/reports/${inProgressReport.id}`}
-                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
+                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block cursor-pointer"
               >
                 <button
                   type="button"
@@ -493,7 +549,7 @@ export function PropertyDetailClient({
                   className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
                   aria-label="Delete report"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="text-red-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                     <line x1="10" y1="11" x2="10" y2="17" />
@@ -511,7 +567,7 @@ export function PropertyDetailClient({
                     {getReportTypeLabel((inProgressReport as Report).report_type)}
                   </p>
                   <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
-                    {photoCount} Photos • Started
+                    {photoCountsByReportId[String(inProgressReport?.id)] ?? 0} Photos • Started
                   </p>
                   <span
                     className="block w-full py-2.5 rounded-lg bg-[#008bff] text-white text-center font-medium text-sm hover:bg-[#0077e6]"
@@ -526,24 +582,37 @@ export function PropertyDetailClient({
             {reportsForThisProperty
               .filter((r) => (r as Report).status === "completed" || (r as Report).storage_path)
               .map((report) => {
-                const hasStoragePath = Boolean((report as Report).storage_path);
-                const isDownloading =
-                  hasStoragePath &&
-                  downloadingPath !== null &&
-                  downloadingPath === (report as Report).storage_path;
+                const isDownloading = downloadingReportId === report.id;
                 return (
                   <div
                     key={report.id}
-                    className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button, a")) return;
+                      router.push(`/r/${report.id}`);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/r/${report.id}`);
+                      }
+                    }}
+                    className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative cursor-pointer"
                   >
                     <button
                       type="button"
-                      onClick={() => openCompletedDeleteStepOne(report as Report)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openCompletedDeleteStepOne(report as Report);
+                      }}
                       disabled={deletingCompletedReportId === report.id}
                       className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
                       aria-label="Delete completed report"
                     >
                       <svg
+                        className="text-red-600"
                         width="18"
                         height="18"
                         viewBox="0 0 24 24"
@@ -569,20 +638,25 @@ export function PropertyDetailClient({
                       {getReportTypeLabel((report as Report & { report_type?: string }).report_type)}
                     </p>
                     <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
-                      {photoCount} Photos • {formatDate(report.created_at)}
+                      {photoCountsByReportId[String(report.id)] ?? 0} Photos • {formatDate(report.created_at)}
                     </p>
                     <div className="flex gap-2">
                       <Link
-                        href={`/properties/${property.id}/reports/${report.id}`}
+                        href={`/r/${report.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="flex-1 py-2 rounded-lg border border-gray-200 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
                         style={fontStyle}
                       >
-                        View
+                        View Report
                       </Link>
                       <button
                         type="button"
-                        onClick={() => handleDownload((report as Report).storage_path ?? "")}
-                        disabled={!hasStoragePath || isDownloading}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDownload(report as Report, property);
+                        }}
+                        disabled={isDownloading}
                         className="flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         style={fontStyle}
                       >

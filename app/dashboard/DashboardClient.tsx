@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { generateReportPdf } from "@/lib/generateReportPdf";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 
@@ -95,7 +96,7 @@ export function DashboardClient({
       router.replace("/dashboard", { scroll: false });
     }
   }, [searchParams, router]);
-  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
+  const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,22 +147,67 @@ export function DashboardClient({
     return dateB - dateA;
   });
 
-  async function handleDownload(storagePath: string) {
+  async function handleDownload(report: Report, property: Property) {
+    console.log("download clicked", report.id);
     setError(null);
-    setDownloadingPath(storagePath);
+    setDownloadingReportId(String(report.id));
     try {
-      const { data, error: urlError } = await supabase.storage
-        .from("reports")
-        .createSignedUrl(storagePath, 3600);
-      if (urlError || !data?.signedUrl) {
-        setError(urlError?.message ?? "Failed to generate download link.");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Not authenticated.");
         return;
       }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch {
-      setError("Something went wrong while downloading.");
+
+      const { data: reportData, error: reportError } = await supabase
+        .from("reports")
+        .select("id, property_id, status, report_type, completed_at, movein_date_local, created_at")
+        .eq("id", report.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (reportError || !reportData) {
+        setError(reportError?.message ?? "Report not found.");
+        return;
+      }
+
+      const { data: propertyData, error: propertyError } = await supabase
+        .from("properties")
+        .select("id, address_line1, address_line2, city, postcode, property_type, tenancy_start_date")
+        .eq("id", property.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (propertyError || !propertyData) {
+        setError(propertyError?.message ?? "Property not found.");
+        return;
+      }
+
+      const { data: roomsData } = await supabase
+        .from("rooms")
+        .select("id, display_name, room_type, custom_name, notes")
+        .eq("property_id", property.id)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      await generateReportPdf(
+        String(reportData.id),
+        propertyData,
+        {
+          id: String(reportData.id),
+          created_at: reportData.created_at,
+          completed_at: reportData.completed_at,
+          report_type: reportData.report_type,
+          movein_date_local: reportData.movein_date_local,
+        },
+        roomsData ?? [],
+        { supabase, userId: user.id }
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong while downloading.");
     } finally {
-      setDownloadingPath(null);
+      setDownloadingReportId(null);
     }
   }
 
@@ -357,64 +403,37 @@ export function DashboardClient({
               </p>
             </div>
           ) : (
-            sortedItems.map(({ property, report, isCompleted, photoCount, date, reportType }) => (
-              <Link
-                key={report.id}
-                href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
-                className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
-              >
-                {/* Delete (In Progress) or Share (Completed) */}
+            sortedItems.map(({ property, report, isCompleted, photoCount, date, reportType }) => {
+              const cardContent = (
+                <>
+                {/* Delete icon for both in-progress and completed */}
                 <div className="absolute top-3 right-3">
-                  {isCompleted ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      className="p-1.5 text-[#008bff] hover:bg-blue-50 rounded-lg"
-                      aria-label="Share"
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openDeletePropertyModal(property);
+                    }}
+                    disabled={deletingId === property.id}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                    aria-label="Delete"
+                  >
+                    <svg
+                      className="text-red-600"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
                     >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-                        <polyline points="16 6 12 2 8 6" />
-                        <line x1="12" y1="2" x2="12" y2="15" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openDeletePropertyModal(property);
-                      }}
-                      disabled={deletingId === property.id}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
-                      aria-label="Delete"
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                        <line x1="10" y1="11" x2="10" y2="17" />
-                        <line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
-                  )}
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                  </button>
                 </div>
 
                 {/* Status badge */}
@@ -473,24 +492,26 @@ export function DashboardClient({
                 {/* Actions */}
                 {isCompleted ? (
                   <div className="flex gap-2">
-                    <span
+                    <Link
+                      href={`/r/${report.id}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="flex-1 py-2 rounded-lg border border-gray-200 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
                       style={fontStyle}
                     >
-                      View
-                    </span>
+                      View Report
+                    </Link>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        report?.storage_path && handleDownload(report.storage_path);
+                        handleDownload(report, property);
                       }}
-                      disabled={downloadingPath === report?.storage_path}
+                      disabled={downloadingReportId === String(report.id)}
                       className="flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       style={fontStyle}
                     >
-                      {downloadingPath === report?.storage_path ? "Downloading…" : "Download"}
+                      {downloadingReportId === String(report.id) ? "Downloading…" : "Download"}
                     </button>
                   </div>
                 ) : (
@@ -501,8 +522,37 @@ export function DashboardClient({
                     Continue
                   </span>
                 )}
-              </Link>
-            ))
+              </>
+              );
+              return isCompleted ? (
+                <div
+                  key={report.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("button, a")) return;
+                    router.push(`/r/${report.id}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/r/${report.id}`);
+                    }
+                  }}
+                  className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block cursor-pointer"
+                >
+                  {cardContent}
+                </div>
+              ) : (
+                <Link
+                  key={report.id}
+                  href={`/properties/${property.id}/reports/${report?.id ?? property.id}`}
+                  className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
+                >
+                  {cardContent}
+                </Link>
+              );
+            })
           )}
         </div>
       </main>

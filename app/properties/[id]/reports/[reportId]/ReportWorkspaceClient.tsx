@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { jsPDF } from "jspdf";
-import * as exifr from "exifr";
 import { createClient } from "@/lib/supabase/client";
 import PageWrapper from "@/components/PageWrapper";
 
@@ -24,6 +22,7 @@ type Room = {
   display_name: string | null;
   room_type: string;
   custom_name: string | null;
+  is_complete?: boolean | null;
 };
 
 const ROOM_TYPES = [
@@ -139,19 +138,20 @@ export function ReportWorkspaceClient({
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
   const [addRoomModalOpen, setAddRoomModalOpen] = useState(false);
+  const [showGenerateConfirmModal, setShowGenerateConfirmModal] = useState(false);
   const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
   const [addRoomCustomName, setAddRoomCustomName] = useState('');
   const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
   const isLocked = reportCompleted;
 
-  const completedCount = rooms.filter(
-    (r) => (propertyPhotos[String(r.id)] ?? []).length > 0
-  ).length;
+  const completedCount = rooms.filter((r) => r.is_complete === true).length;
   const effectiveCompletedCount = isLocked ? rooms.length : completedCount;
   const allRoomsComplete = () => {
     if (rooms.length === 0) return false;
-    return rooms.every((r) => (propertyPhotos[String(r.id)] ?? []).length > 0);
+    return rooms.every((r) => r.is_complete === true);
   };
+  const incompleteRoomNames = () =>
+    rooms.filter((r) => r.is_complete !== true).map((r) => r.display_name || r.room_type || "Room");
 
   const handleAddRoomClick = () => {
     setAddRoomModalOpen(true);
@@ -190,7 +190,7 @@ export function ReportWorkspaceClient({
         setDetailsError(error.message ?? "Failed to add room.");
         return;
       }
-      setRooms((prev) => [...prev, newRoom as Room]);
+      setRooms((prev) => [...prev, { ...(newRoom as Room), is_complete: false }]);
       setPropertyPhotos((prev) => ({ ...prev, [String(newRoom.id)]: [] }));
       setAddRoomModalOpen(false);
       setAddRoomSelectedType(null);
@@ -202,7 +202,12 @@ export function ReportWorkspaceClient({
 
   async function generateReport() {
     if (!allRoomsComplete()) {
-      setDetailsError("Add at least one photo to each room before generating your report.");
+      const names = incompleteRoomNames();
+      setDetailsError(
+        names.length > 0
+          ? `Mark these rooms as complete before finishing: ${names.join(", ")}`
+          : "All rooms must be marked complete before generating your report."
+      );
       return;
     }
     const totalPhotos = Object.values(propertyPhotos).flat().length;
@@ -210,222 +215,22 @@ export function ReportWorkspaceClient({
     setReportGenerating(true);
     setDetailsError(null);
     try {
-      const { data: photos } = await supabase
-        .from("photos")
-        .select("id, room_id, storage_path, note, taken_at")
-        .eq("property_id", property.id)
-        .order("taken_at", { ascending: true });
-
-      if (!photos?.length) {
-        setDetailsError("No photos found to include in the report.");
-        setReportGenerating(false);
-        return;
-      }
-
-      type PhotoRow = { id: string; room_id: string; storage_path: string; note: string | null; taken_at: string | null };
-      const photosWithData: { photo: PhotoRow; dataUrl: string; width: number; height: number }[] = [];
-      for (const photo of photos as PhotoRow[]) {
-        const { data: signed } = await supabase.storage
+      const photoIds = Object.values(propertyPhotos).flat().map((p) => p.id);
+      if (photoIds.length > 0) {
+        const { error: photoUpdateError } = await supabase
           .from("photos")
-          .createSignedUrl(photo.storage_path, 3600);
-        if (!signed?.signedUrl) continue;
-
-        const res = await fetch(signed.signedUrl);
-        const blob = await res.blob();
-        let orientation = 1;
-        try {
-          const exifData: { Orientation?: number } = await exifr.parse(blob, { pick: ["Orientation"] });
-          if (exifData?.Orientation) orientation = exifData.Orientation;
-        } catch {
-          /* ignore */
-        }
-
-        const objectUrl = URL.createObjectURL(blob);
-        const img = new window.Image();
-        img.src = objectUrl;
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-        });
-
-        const srcW = img.naturalWidth || img.width;
-        const srcH = img.naturalHeight || img.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          URL.revokeObjectURL(objectUrl);
-          continue;
-        }
-
-        switch (orientation) {
-          case 3:
-            canvas.width = srcW;
-            canvas.height = srcH;
-            ctx.translate(canvas.width, canvas.height);
-            ctx.rotate(Math.PI);
-            break;
-          case 6:
-            canvas.width = srcH;
-            canvas.height = srcW;
-            ctx.translate(canvas.width, 0);
-            ctx.rotate(Math.PI / 2);
-            break;
-          case 8:
-            canvas.width = srcH;
-            canvas.height = srcW;
-            ctx.translate(0, canvas.height);
-            ctx.rotate(-Math.PI / 2);
-            break;
-          default:
-            canvas.width = srcW;
-            canvas.height = srcH;
-        }
-        ctx.drawImage(img, 0, 0, srcW, srcH);
-        URL.revokeObjectURL(objectUrl);
-
-        photosWithData.push({
-          photo,
-          dataUrl: canvas.toDataURL("image/jpeg", 0.9),
-          width: canvas.width,
-          height: canvas.height,
-        });
+          .update({ report_id: reportId })
+          .in("id", photoIds)
+          .eq("property_id", property.id)
+          .eq("user_id", userId);
+        if (photoUpdateError) throw new Error(photoUpdateError.message ?? "Failed to tag photos with report.");
       }
-
-      async function loadAsset(path: string): Promise<string | null> {
-        try {
-          const res = await fetch(path);
-          if (!res.ok) return null;
-          const blob = await res.blob();
-          return new Promise((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(r.result as string);
-            r.onerror = reject;
-            r.readAsDataURL(blob);
-          });
-        } catch {
-          return null;
-        }
-      }
-
-      const [coverDataUrl, logoDataUrl] = await Promise.all([
-        loadAsset("/Report_Cover.png"),
-        loadAsset("/dg-logo-dark.png"),
-      ]);
-
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      const footerY = pageH - 12;
-
-      function addHeader() {
-        const headerTop = margin;
-        const logoWidth = 38;
-        const logoHeight = logoWidth * 0.3;
-        doc.setFontSize(11);
-        if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, headerTop, logoWidth, logoHeight);
-        doc.setTextColor(55, 65, 81);
-        doc.text("Property Condition Report", pageW / 2, headerTop + 7, { align: "center" });
-        if (property.address_line1) doc.text(property.address_line1, pageW - margin, headerTop + 7, { align: "right" });
-        doc.setDrawColor(229, 231, 235);
-        doc.setLineWidth(0.3);
-        const lineY = headerTop + 16;
-        doc.line(margin, lineY, pageW - margin, lineY);
-        return lineY;
-      }
-
-      function addFooter(pageNum: number) {
-        doc.setFontSize(8);
-        doc.setTextColor(156, 163, 175);
-        doc.text("Report ID", margin, footerY - 4);
-        doc.setFontSize(9);
-        doc.setTextColor(17, 24, 39);
-        doc.text(String(property.id), margin, footerY);
-        doc.setTextColor(55, 65, 81);
-        doc.text(`Page ${pageNum}`, pageW - margin, footerY, { align: "right" });
-      }
-
-      const reportDate = new Date();
-      if (coverDataUrl) doc.addImage(coverDataUrl, "PNG", 0, 0, pageW, pageH);
-
-      doc.addPage();
-      addHeader();
-      let y = margin + 28;
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text("Property Condition Report", margin, y);
-      y += 10;
-
-      const addressFull = [property.address_line1, property.address_line2, property.city, property.postcode]
-        .filter(Boolean)
-        .join(", ");
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 116, 139);
-      doc.text("Address", margin, y);
-      doc.setTextColor(15, 23, 42);
-      doc.text(addressFull || "—", margin + 38, y);
-      y += 14;
-      doc.setTextColor(100, 116, 139);
-      doc.text("Property Type", margin, y);
-      doc.setTextColor(15, 23, 42);
-      doc.text(property.property_type ?? "—", margin + 38, y);
-      y += 14;
-      doc.setTextColor(100, 116, 139);
-      doc.text("Total Rooms", margin, y);
-      doc.setTextColor(15, 23, 42);
-      doc.text(String(rooms.length), margin + 38, y);
-      y += 14;
-      doc.setTextColor(100, 116, 139);
-      doc.text("Total Photos", margin, y);
-      doc.setTextColor(15, 23, 42);
-      doc.text(String(photos.length), margin + 38, y);
-      addFooter(2);
-
-      const imgMaxW = 85;
-      const imgMaxH = 70;
-      rooms.forEach((room) => {
-        const roomPhotos = photosWithData.filter((p) => String(p.photo.room_id) === String(room.id));
-        if (roomPhotos.length === 0) return;
-
-        doc.addPage();
-        addHeader();
-        let gridY = margin + 40;
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text(room.display_name || room.room_type || "Room", margin, gridY);
-        gridY += 12;
-
-        const cols = 3;
-        roomPhotos.forEach((item, idx) => {
-          const col = idx % cols;
-          const row = Math.floor(idx / cols);
-          const x = margin + col * (imgMaxW + 4);
-          const imgY = gridY + row * (imgMaxH + 4);
-          const scale = Math.min(imgMaxW / item.width, imgMaxH / item.height, 1);
-          const w = item.width * scale;
-          const h = item.height * scale;
-          doc.addImage(item.dataUrl, "JPEG", x, imgY, w, h);
-        });
-        addFooter(doc.getNumberOfPages());
-      });
-
-      const timestamp = Date.now();
-      const storagePath = `${userId}/${property.id}/${timestamp}.pdf`;
-      const pdfBlob = doc.output("blob");
-
-      const { error: uploadError } = await supabase.storage
-        .from("reports")
-        .upload(storagePath, pdfBlob, { contentType: "application/pdf" });
-      if (uploadError) throw new Error(uploadError.message ?? "Failed to upload report.");
 
       const { error: updateError } = await supabase
         .from("reports")
         .update({
-          storage_path: storagePath,
           status: "completed",
+          completed_at: new Date().toISOString(),
         })
         .eq("id", reportId)
         .eq("user_id", userId);
@@ -433,15 +238,7 @@ export function ReportWorkspaceClient({
       if (updateError) throw new Error(updateError.message ?? "Failed to update report.");
 
       setReportCompleted(true);
-
-      const safeAddress = (property.address_line1 || "Property")
-        .replace(/[^a-zA-Z0-9\s-]/g, "")
-        .replace(/\s+/g, "_")
-        .slice(0, 50);
-      const dateForFile = reportDate.toISOString().slice(0, 10);
-      doc.save(`DepositGuard_Report_${safeAddress}_${dateForFile}.pdf`);
-
-      router.refresh();
+      router.replace(`/r/${reportId}`);
     } catch (err) {
       setDetailsError(err instanceof Error ? err.message : "Failed to generate report.");
     } finally {
@@ -577,6 +374,47 @@ export function ReportWorkspaceClient({
                 style={{ ...fontStyle, color: "#ffffff" }}
               >
                 Add Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGenerateConfirmModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+          onClick={() => !reportGenerating && setShowGenerateConfirmModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Finish Report?
+            </h2>
+            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+              Once your report has been generated, it cannot be edited. No further photos or notes can be added.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowGenerateConfirmModal(false)}
+                className="flex-[1] py-2.5 rounded-lg border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
+                style={fontStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGenerateConfirmModal(false);
+                  generateReport();
+                }}
+                disabled={reportGenerating}
+                className="flex-[2] py-2.5 rounded-lg bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {reportGenerating ? "Generating…" : "Confirm"}
               </button>
             </div>
           </div>
@@ -761,7 +599,7 @@ export function ReportWorkspaceClient({
             const rid = String(room.id);
             const photos = propertyPhotos[rid] ?? [];
             const photoCount = photos.length;
-            const isComplete = isLocked || photoCount > 0;
+            const isComplete = isLocked || room.is_complete === true;
             const roomName = room.display_name || room.room_type || "Room";
 
             const roomHref =
@@ -830,16 +668,23 @@ export function ReportWorkspaceClient({
           ) : (
             <button
               type="button"
-              onClick={generateReport}
-              disabled={reportGenerating || !allRoomsComplete()}
-              className={`w-full py-3 rounded-lg font-medium text-base transition-colors ${
+              onClick={() => {
+                if (reportGenerating) return;
+                if (!allRoomsComplete()) {
+                  setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
+                  return;
+                }
+                setShowGenerateConfirmModal(true);
+              }}
+              disabled={reportGenerating}
+              className={`w-full py-3 rounded-lg font-medium text-base transition-colors pointer-events-auto ${
                 reportGenerating || !allRoomsComplete()
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-[#008bff] text-white hover:bg-[#0077e6]"
               }`}
               style={{ ...fontStyle, color: reportGenerating || !allRoomsComplete() ? undefined : "#ffffff" }}
             >
-              {reportGenerating ? "Generating…" : "Generate Report"}
+              {reportGenerating ? "Generating…" : "Finish Report"}
             </button>
           )}
         </div>

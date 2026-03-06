@@ -1080,7 +1080,7 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, i
                   : 'Generating report…'
                 : isLocked
                   ? 'Download Report'
-                  : 'Generate Report'}
+                  : 'Finish Report'}
             </button>
           </div>
         )}
