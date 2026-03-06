@@ -35,7 +35,7 @@ type DashboardClientProps = {
   roomCounts: Record<string, number>;
   bedroomCounts: Record<string, number>;
   bathroomCounts: Record<string, number>;
-  photoCounts: Record<string, number>;
+  photoCountsByReportId: Record<string, number>;
 };
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
@@ -82,7 +82,7 @@ export function DashboardClient({
   roomCounts,
   bedroomCounts,
   bathroomCounts,
-  photoCounts,
+  photoCountsByReportId,
 }: DashboardClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,6 +99,7 @@ export function DashboardClient({
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Build report items from ALL reports (one card per report) — in_progress and completed
@@ -111,7 +112,7 @@ export function DashboardClient({
       const isCompleted =
         report.status === "completed" || Boolean(report.storage_path);
       const roomCount = roomCounts[String(property.id)] ?? 0;
-      const photoCount = photoCounts[String(property.id)] ?? 0;
+      const photoCount = photoCountsByReportId[String(report.id)] ?? 0;
       const date = report.created_at ?? property.created_at ?? null;
       return {
         property,
@@ -214,6 +215,42 @@ export function DashboardClient({
   function openDeletePropertyModal(property: Property) {
     setError(null);
     setPropertyToDelete(property);
+  }
+
+  function openDeleteReportModal(report: Report) {
+    setError(null);
+    setReportToDelete(report);
+  }
+
+  async function confirmDeleteReport() {
+    const report = reportToDelete;
+    if (!report) return;
+    setReportToDelete(null);
+    setError(null);
+    setDeletingId(report.id);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be signed in to delete a report.");
+        return;
+      }
+      const { error: deleteError } = await supabase
+        .from("reports")
+        .delete()
+        .eq("id", report.id)
+        .eq("user_id", user.id);
+      if (deleteError) {
+        setError(deleteError.message ?? "Unable to delete report.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Something went wrong.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function confirmDeleteProperty() {
@@ -413,9 +450,9 @@ export function DashboardClient({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      openDeletePropertyModal(property);
+                      openDeleteReportModal(report);
                     }}
-                    disabled={deletingId === property.id}
+                    disabled={deletingId === report.id}
                     className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
                     aria-label="Delete"
                   >
@@ -557,14 +594,46 @@ export function DashboardClient({
         </div>
       </main>
 
+      {reportToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Delete this report?
+            </h2>
+            <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+              This report will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReportToDelete(null)}
+                className="shrink-0 py-2.5 px-5 rounded-lg font-medium text-sm text-white hover:bg-opacity-90 transition-opacity"
+                style={{ ...fontStyle, backgroundColor: "#008bff", color: "#ffffff" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteReport}
+                disabled={deletingId === reportToDelete.id}
+                className="flex-1 min-w-0 py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {deletingId === reportToDelete.id ? "Deleting…" : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {propertyToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
-              Delete Report
+              Delete this property?
             </h2>
             <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
-              Are you sure you want to delete this report? This will delete the property and all associated data. This cannot be undone.
+              This will permanently delete the property and all associated reports and photos. This cannot be undone.
             </p>
             <div className="flex gap-3">
               <button

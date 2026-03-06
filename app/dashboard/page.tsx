@@ -32,28 +32,24 @@ export default async function DashboardPage() {
     console.error("[dashboard/page.tsx] Reports Supabase error:", reportsError.message, reportsError);
   }
 
-  // Get room counts (bedrooms, bathrooms) and photo counts per property
+  // Get room counts (bedrooms, bathrooms) and photo counts per report
   const propertyIds = (properties ?? []).map((p) => p.id);
   const roomCounts: Record<string, number> = {};
   const bedroomCounts: Record<string, number> = {};
   const bathroomCounts: Record<string, number> = {};
-  const photoCounts: Record<string, number> = {};
+  const roomsByPropertyId: Record<string, string[]> = {};
 
   if (propertyIds.length > 0) {
-    const [roomData, photoData] = await Promise.all([
-      supabase
-        .from("rooms")
-        .select("property_id, room_type")
-        .in("property_id", propertyIds)
-        .eq("user_id", user.id),
-      supabase
-        .from("photos")
-        .select("property_id")
-        .in("property_id", propertyIds),
-    ]);
+    const roomData = await supabase
+      .from("rooms")
+      .select("id, property_id, room_type")
+      .in("property_id", propertyIds)
+      .eq("user_id", user.id);
 
-    (roomData.data ?? []).forEach((r: { property_id: string; room_type: string }) => {
+    (roomData.data ?? []).forEach((r: { id: string; property_id: string; room_type: string }) => {
       roomCounts[r.property_id] = (roomCounts[r.property_id] ?? 0) + 1;
+      if (!roomsByPropertyId[r.property_id]) roomsByPropertyId[r.property_id] = [];
+      roomsByPropertyId[r.property_id].push(r.id);
       if (r.room_type === "Bedroom") {
         bedroomCounts[r.property_id] = (bedroomCounts[r.property_id] ?? 0) + 1;
       }
@@ -61,9 +57,21 @@ export default async function DashboardPage() {
         bathroomCounts[r.property_id] = (bathroomCounts[r.property_id] ?? 0) + 1;
       }
     });
-    (photoData.data ?? []).forEach((p: { property_id: string }) => {
-      photoCounts[p.property_id] = (photoCounts[p.property_id] ?? 0) + 1;
-    });
+  }
+
+  const photoCountsByReportId: Record<string, number> = {};
+  for (const report of reports ?? []) {
+    const roomIds = roomsByPropertyId[String(report.property_id)] ?? [];
+    let query = supabase
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .eq("property_id", report.property_id)
+      .eq("report_id", report.id);
+    if (roomIds.length > 0) {
+      query = query.in("room_id", roomIds);
+    }
+    const { count } = await query;
+    photoCountsByReportId[String(report.id)] = count ?? 0;
   }
 
   const userName =
@@ -79,7 +87,7 @@ export default async function DashboardPage() {
       roomCounts={roomCounts}
       bedroomCounts={bedroomCounts}
       bathroomCounts={bathroomCounts}
-      photoCounts={photoCounts}
+      photoCountsByReportId={photoCountsByReportId}
     />
   );
 }
