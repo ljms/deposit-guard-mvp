@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import { generateReportPdf } from "@/lib/generateReportPdf";
 
 type Property = {
@@ -101,6 +102,21 @@ export function ReportPublicClient({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
   const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
+  const [expandedRoomIds, setExpandedRoomIds] = useState<Set<string>>(() => {
+    const firstWithPhotos = rooms.find((r) =>
+      photosWithUrls.some((p) => String(p.room_id) === String(r.id))
+    );
+    return new Set(firstWithPhotos ? [String(firstWithPhotos.id)] : []);
+  });
+
+  const toggleRoom = useCallback((roomId: string) => {
+    setExpandedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      return next;
+    });
+  }, []);
 
   const addressFull = formatAddress(property);
 
@@ -182,19 +198,21 @@ export function ReportPublicClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] flex flex-col">
-      {/* Header bar — logo only, minimal */}
-      <header className="sticky top-0 z-10 w-full bg-white border-b border-gray-200 px-4 py-3 md:px-12 md:py-4 lg:px-24">
-        <Image
-          src="/dg-logo-dark.png"
-          alt="Deposit Guard"
-          width={120}
-          height={40}
-          className="h-8 w-auto md:h-10"
-        />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-[1400px] mx-auto px-8 py-4">
+          <Image
+            src="/dg-logo-dark.png"
+            alt="Deposit Guard"
+            width={120}
+            height={40}
+            className="h-8 w-auto md:h-10"
+          />
+        </div>
       </header>
 
-      <main className="flex-1 px-4 py-10 md:px-12 md:py-14 lg:px-24">
+      <div className="max-w-[1400px] mx-auto px-8 py-8 w-full flex-1">
+      <main>
         {/* Report hero — no card, no border */}
         <section className="flex flex-col md:flex-row md:items-start md:justify-between gap-8 md:gap-12 mb-16">
           <div className="space-y-6">
@@ -256,53 +274,87 @@ export function ReportPublicClient({
             const roomPhotos = photosWithUrls.filter((p) => String(p.room_id) === String(room.id));
             if (roomPhotos.length === 0) return null;
 
+            const roomIdStr = String(room.id);
+            const isExpanded = expandedRoomIds.has(roomIdStr);
+
             return (
               <article key={room.id} className="w-full rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 text-white" style={{ backgroundColor: "#008bff" }}>
-                  <h2 className="text-base font-semibold">
+                <button
+                  type="button"
+                  onClick={() => toggleRoom(roomIdStr)}
+                  className="flex items-center justify-between w-full px-4 py-3 text-white text-left cursor-pointer"
+                  style={{ backgroundColor: "#008bff" }}
+                  aria-expanded={isExpanded}
+                >
+                  <h2 className="text-base font-semibold text-white">
                     {room.display_name || room.room_type || "Room"}
                   </h2>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/20">
-                    {roomPhotos.length} {roomPhotos.length === 1 ? "photo" : "photos"}
-                  </span>
-                </div>
-                {room.notes && (
-                  <p className="px-4 py-3 text-gray-600 italic text-sm border-b border-gray-100">
-                    {room.notes}
-                  </p>
-                )}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-4">
-                  {roomPhotos.map((photo, index) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => {
-                        setViewerRoomId(String(room.id));
-                        setViewerPhotoIndex(index);
-                      }}
-                      className="overflow-hidden text-left cursor-pointer block w-full"
+                  <span className="flex items-center gap-2 text-white">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/20">
+                      {roomPhotos.length} {roomPhotos.length === 1 ? "photo" : "photos"}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 shrink-0 transition-transform duration-200 text-white ${isExpanded ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
                     >
-                      <div className="aspect-[4/5] relative bg-gray-100 w-full">
-                        <Image
-                          src={photo.signedUrl}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          unoptimized
-                          sizes="(max-width: 768px) 50vw, 33vw"
-                        />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      {room.notes && (
+                        <p className="px-4 py-3 text-gray-600 italic text-sm border-b border-gray-100">
+                          {room.notes}
+                        </p>
+                      )}
+                      <div
+                        className="grid grid-cols-2 md:grid-cols-4 gap-1 p-4 overflow-y-auto [container-type:inline-size] max-h-[calc(2*((100cqw-0.25rem)/2*5/4+4.5rem)+0.25rem)] md:max-h-[calc(2*((100cqw-0.5rem)/3*5/4+4.5rem)+0.25rem)]"
+                      >
+                        {roomPhotos.map((photo, index) => (
+                          <button
+                            key={photo.id}
+                            type="button"
+                            onClick={() => {
+                              setViewerRoomId(String(room.id));
+                              setViewerPhotoIndex(index);
+                            }}
+                            className="overflow-hidden text-left cursor-pointer block w-full"
+                          >
+                            <div className="aspect-[4/5] relative bg-gray-100 w-full">
+                              <Image
+                                src={photo.signedUrl}
+                                alt=""
+                                fill
+                                className="object-cover"
+                                unoptimized
+                                sizes="(max-width: 768px) 50vw, 33vw"
+                              />
+                            </div>
+                            <div className="bg-gray-100 px-2 py-2 text-xs text-gray-600 overflow-hidden min-h-[3.5rem]">
+                              <p className="font-semibold">{formatPhotoTimestamp(photo.taken_at)}</p>
+                              {photo.note ? (
+                                <p className="mt-0.5 text-gray-500 truncate overflow-hidden whitespace-nowrap">{photo.note}</p>
+                              ) : (
+                                <p className="mt-0.5 invisible" aria-hidden>&nbsp;</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                      <div className="bg-gray-100 px-2 py-2 text-xs text-gray-600 overflow-hidden min-h-[3.5rem]">
-                        <p className="font-semibold">{formatPhotoTimestamp(photo.taken_at)}</p>
-                        {photo.note ? (
-                          <p className="mt-0.5 text-gray-500 truncate overflow-hidden whitespace-nowrap">{photo.note}</p>
-                        ) : (
-                          <p className="mt-0.5 invisible" aria-hidden>&nbsp;</p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </article>
             );
           })}
@@ -318,6 +370,7 @@ export function ReportPublicClient({
           <a href="/privacy" className="hover:text-gray-700">Privacy</a>
         </p>
       </footer>
+      </div>
 
       {/* Photo lightbox modal */}
       {viewerRoomId !== null && currentPhoto && (

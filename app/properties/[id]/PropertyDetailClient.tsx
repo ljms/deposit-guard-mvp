@@ -324,11 +324,11 @@ export function PropertyDetailClient({
           .remove([reportPendingDelete.storage_path]);
       }
 
+      // Delete only photos belonging to this report (report_id = reportPendingDelete.id).
       const { data: photos } = await supabase
         .from("photos")
         .select("id, storage_path")
-        .eq("property_id", property.id)
-        .eq("user_id", user.id);
+        .eq("report_id", reportPendingDelete.id);
 
       const photoPaths = (photos ?? [])
         .map((p) => p.storage_path)
@@ -341,8 +341,7 @@ export function PropertyDetailClient({
       await supabase
         .from("photos")
         .delete()
-        .eq("property_id", property.id)
-        .eq("user_id", user.id);
+        .eq("report_id", reportPendingDelete.id);
 
       await supabase
         .from("reports")

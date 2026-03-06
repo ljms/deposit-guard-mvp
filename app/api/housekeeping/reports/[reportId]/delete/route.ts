@@ -96,6 +96,32 @@ export async function POST(
     }
   }
 
+  // Delete only photos belonging to this report (report_id = reportId). Never delete by room_id alone.
+  const { data: deletedPhotos, error: photosDeleteError } = await admin
+    .from("photos")
+    .delete()
+    .eq("report_id", reportId)
+    .select("id");
+
+  if (photosDeleteError) {
+    // eslint-disable-next-line no-console
+    console.log("[housekeeping/delete-report] Photos delete error", {
+      reportId,
+      photosDeleteError,
+    });
+    return NextResponse.json(
+      { message: "Failed to delete report photos" },
+      { status: 500 }
+    );
+  }
+
+  const deletedPhotoCount = deletedPhotos?.length ?? 0;
+  // eslint-disable-next-line no-console
+  console.log(
+    "[housekeeping/delete-report] Deleted photos for report before removing report record",
+    { reportId, deletedPhotoCount }
+  );
+
   const { error: deleteError } = await admin
     .from("reports")
     .delete()

@@ -236,6 +236,15 @@ export function DashboardClient({
         setError("You must be signed in to delete a report.");
         return;
       }
+      // Delete only photos belonging to this report (report_id = report.id).
+      const { error: photosError } = await supabase
+        .from("photos")
+        .delete()
+        .eq("report_id", report.id);
+      if (photosError) {
+        setError(photosError.message ?? "Unable to delete report photos.");
+        return;
+      }
       const { error: deleteError } = await supabase
         .from("reports")
         .delete()

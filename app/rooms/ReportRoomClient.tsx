@@ -463,7 +463,7 @@ export function ReportRoomClient({
                   type="button"
                   onClick={openCamera}
                   disabled={photoSaving}
-                  className="w-full py-3 rounded-xl bg-[#008bff] text-white font-semibold text-base hover:bg-[#0077e6] disabled:opacity-50 tap-feedback-touch"
+                  className="w-full py-3 rounded-xl border-2 border-[#1a1a86] text-[#1a1a86] bg-white font-medium text-base hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 tap-feedback-touch"
                   style={{ ...fontStyle, WebkitTapHighlightColor: "transparent" }}
                 >
                   📷 Take Photo
