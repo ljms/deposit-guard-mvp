@@ -80,7 +80,6 @@ export async function generateReportPdf(
     const { data: photosData } = await photosOrFetch.supabase
       .from("photos")
       .select("id, storage_path, room_id, note, taken_at")
-      .eq("property_id", property.id)
       .eq("report_id", reportId)
       .eq("user_id", photosOrFetch.userId)
       .order("taken_at", { ascending: true });

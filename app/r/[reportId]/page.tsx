@@ -43,13 +43,12 @@ export default async function PublicReportPage({ params }: PublicReportPageProps
   const { data: rooms } = await supabase
     .from("rooms")
     .select("id, display_name, room_type, custom_name, notes")
-    .eq("property_id", property.id)
+    .eq("report_id", reportId)
     .order("created_at", { ascending: true });
 
   const { data: photosData } = await supabase
     .from("photos")
     .select("id, storage_path, room_id, note, taken_at")
-    .eq("property_id", property.id)
     .eq("report_id", reportId)
     .order("taken_at", { ascending: true });
 

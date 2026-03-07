@@ -186,18 +186,6 @@ export function PropertyDetailClient({
         return;
       }
 
-      const { error: roomsResetError } = await supabase
-        .from("rooms")
-        .update({ is_complete: false })
-        .eq("property_id", property.id)
-        .eq("user_id", user.id);
-
-      if (roomsResetError) {
-        setError(roomsResetError.message ?? "Failed to reset room completion state.");
-        setCreateReportLoading(false);
-        return;
-      }
-
       setShowReportTypeModal(false);
       setShowMoveInDateModal(false);
       setShowCheckoutDateModal(false);
@@ -271,22 +259,28 @@ export function PropertyDetailClient({
         return;
       }
 
-      const { data: photos } = await supabase
-        .from("photos")
-        .select("id, storage_path")
+      const { data: inProgressReport } = await supabase
+        .from("reports")
+        .select("id")
         .eq("property_id", property.id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("status", "in_progress")
+        .maybeSingle();
 
-      const paths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
-      if (paths.length > 0) {
-        await supabase.storage.from("photos").remove(paths);
+      if (inProgressReport) {
+        const { data: photos } = await supabase
+          .from("photos")
+          .select("id, storage_path")
+          .eq("report_id", inProgressReport.id);
+
+        const paths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
+        if (paths.length > 0) {
+          await supabase.storage.from("photos").remove(paths);
+        }
+
+        await supabase.from("photos").delete().eq("report_id", inProgressReport.id);
+        await supabase.from("rooms").delete().eq("report_id", inProgressReport.id);
       }
-
-      await supabase
-        .from("photos")
-        .delete()
-        .eq("property_id", property.id)
-        .eq("user_id", user.id);
 
       await supabase
         .from("reports")
@@ -397,7 +391,7 @@ export function PropertyDetailClient({
       const { data: roomsData } = await supabase
         .from("rooms")
         .select("id, display_name, room_type, custom_name, notes")
-        .eq("property_id", prop.id)
+        .eq("report_id", reportData.id)
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
 

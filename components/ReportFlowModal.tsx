@@ -11,7 +11,7 @@ type ReportStep =
   | "property-details"
   | "generate";
 
-type CreatePropertySubStep = "address" | "property-setup";
+type CreatePropertySubStep = "address" | "report-type";
 
 type Property = {
   id: string | number;
@@ -109,18 +109,27 @@ const fadeScaleTransition = {
   transition: { duration: 0.2, ease: "easeInOut" as const },
 };
 
+const REPORT_TYPES_CREATE = [
+  { value: "check-in", label: "Check-In" },
+  { value: "interim", label: "Interim" },
+  { value: "check-out", label: "Check-Out" },
+] as const;
+
 type ReportFlowModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
-  onPropertyCreated?: (propertyId: string | number) => void;
+  /** Called with (propertyId, reportId?). When reportId is provided (Flow A), caller should navigate to /reports/[reportId]. */
+  onPropertyCreated?: (propertyId: string | number, reportId?: string) => void;
   /** When provided, selecting an existing property closes the modal and calls this instead of continuing to property-details. */
   onPropertySelected?: (propertyId: string | number) => void;
   /** When true, open directly at the create-property step (skip property selection). */
   startAtCreateProperty?: boolean;
+  /** "with-report" = Dashboard Create New Report: address → report type → create property + report, then navigate to report. "property-only" = Properties Create New Property: address only → create property, navigate to property. */
+  createFlow?: "with-report" | "property-only";
 };
 
-export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated, onPropertySelected, startAtCreateProperty }: ReportFlowModalProps) {
+export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated, onPropertySelected, startAtCreateProperty, createFlow }: ReportFlowModalProps) {
   const supabase = createClient();
   const [step, setStep] = useState<ReportStep>("select-property");
   const [loading, setLoading] = useState(true);
@@ -138,6 +147,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   const [createLoading, setCreateLoading] = useState(false);
 
   const [propertyDetail, setPropertyDetail] = useState<PropertyDetail | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [propertyRooms, setPropertyRooms] = useState<RoomDetail[]>([]);
   const [propertyPhotos, setPropertyPhotos] = useState<Record<string, PhotoDetail[]>>({});
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
@@ -160,6 +170,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   const [addRoomCustomName, setAddRoomCustomName] = useState("");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingRoomName, setEditingRoomName] = useState("");
+  const [createReportType, setCreateReportType] = useState<string>("check-in");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -186,6 +197,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     if (isOpen && startAtCreateProperty) {
       setStep("create-property");
       setCreatePropertySubStep("address");
+      setCreateReportType("check-in");
     }
   }, [isOpen, startAtCreateProperty]);
 
@@ -219,6 +231,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       setAddRoomCustomName("");
       setEditingRoomId(null);
       setEditingRoomName("");
+      setCreateReportType("check-in");
     }
   }, [isOpen]);
 
@@ -240,8 +253,8 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     setPostcode("");
     setMoveInDate("");
     setPropertyType("");
-    setRooms([]);
     setCreateError(null);
+    setCreateReportType("check-in");
     setStep("create-property");
   };
 
@@ -260,21 +273,87 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     setRooms((prev) => [...prev, { id: generateId(), roomType: "", customName: "" }]);
   };
 
-  const isCreateFormValid = () => {
-    if (!addressLine1.trim()) return false;
-    if (!propertyType) return false;
-    if (!moveInDate.trim()) return false;
-    if (rooms.length === 0) return false;
-    return rooms.every((r) => {
-      if (r.roomType === "Custom") return r.customName.trim().length > 0;
-      return r.roomType.length > 0;
-    });
-  };
+  const isAddressStepValid = () =>
+    Boolean(
+      addressLine1.trim() &&
+        city.trim() &&
+        postcode.trim() &&
+        moveInDate.trim() &&
+        propertyType
+    );
 
-  const handleCreateProperty = async () => {
+  const handleCreatePropertyOnly = async () => {
     setCreateError(null);
     if (!moveInDate.trim()) {
       setCreateError("Please enter your tenancy start date.");
+      return;
+    }
+    if (!propertyType) {
+      setCreateError("Please select a property type.");
+      return;
+    }
+    setCreateLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        onClose();
+        return;
+      }
+
+      const { data: propertyData, error: propError } = await supabase
+        .from("properties")
+        .insert({
+          user_id: user.id,
+          address_line1: toTitleCase(addressLine1.trim()),
+          address_line2: null,
+          city: city.trim() ? toTitleCase(city.trim()) : null,
+          postcode: formatPostcode(postcode),
+          tenancy_start_date: moveInDate.trim(),
+          property_type: propertyType,
+        })
+        .select("id")
+        .single();
+
+      if (propError) {
+        setCreateError(propError.message ?? "Failed to save property.");
+        setCreateLoading(false);
+        return;
+      }
+
+      const address = [
+        toTitleCase(addressLine1.trim()),
+        city.trim() ? toTitleCase(city.trim()) : null,
+        formatPostcode(postcode),
+      ]
+        .filter(Boolean)
+        .join(", ");
+      fetch("/api/notify/property-created", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, email: user.email ?? "" }),
+      }).catch(() => {});
+
+      if (onPropertyCreated) {
+        onPropertyCreated(propertyData.id);
+        onClose();
+      }
+    } catch {
+      setCreateError("Something went wrong. Please try again.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleCreatePropertyAndReport = async () => {
+    setCreateError(null);
+    if (!moveInDate.trim()) {
+      setCreateError("Please enter your tenancy start date.");
+      return;
+    }
+    if (!propertyType) {
+      setCreateError("Please select a property type.");
       return;
     }
     setCreateLoading(true);
@@ -321,60 +400,28 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       }).catch(() => {});
 
       const propertyId = propertyData.id;
-      const insertedRooms: RoomDetail[] = [];
 
-      for (const room of rooms) {
-        const roomType = room.roomType === "Custom" ? "Custom" : room.roomType;
-        const customName = room.roomType === "Custom" ? room.customName.trim() : null;
-        const displayName = room.roomType === "Custom" ? customName! : room.roomType;
+      const { data: newReport, error: reportError } = await supabase
+        .from("reports")
+        .insert({
+          property_id: propertyId,
+          user_id: user.id,
+          status: "in_progress",
+          report_type: createReportType,
+          storage_path: null,
+        })
+        .select("id")
+        .single();
 
-        const { data: insertedRoom, error: roomError } = await supabase
-          .from("rooms")
-          .insert({
-            property_id: propertyId,
-            user_id: user.id,
-            room_type: roomType,
-            custom_name: customName,
-            display_name: displayName,
-          })
-          .select("id, display_name, room_type, custom_name")
-          .single();
-
-        if (roomError) {
-          setCreateError(roomError.message ?? "Failed to save rooms.");
-          setCreateLoading(false);
-          return;
-        }
-        insertedRooms.push(insertedRoom as RoomDetail);
+      if (reportError || !newReport) {
+        setCreateError(reportError?.message ?? "Failed to create report.");
+        setCreateLoading(false);
+        return;
       }
 
-      const newPropertyDetail: PropertyDetail = {
-        id: propertyId,
-        address_line1: toTitleCase(addressLine1.trim()),
-        address_line2: null,
-        city: city.trim() ? toTitleCase(city.trim()) : null,
-        postcode: formatPostcode(postcode),
-        property_type: propertyType,
-      };
-
       if (onPropertyCreated) {
-        onPropertyCreated(propertyId);
+        onPropertyCreated(propertyId, newReport.id);
         onClose();
-      } else {
-        const photosByRoom: Record<string, PhotoDetail[]> = {};
-        for (const r of insertedRooms) {
-          photosByRoom[String(r.id)] = [];
-        }
-
-        setPropertyDetail(newPropertyDetail);
-        setPropertyRooms(insertedRooms);
-        setPropertyPhotos(photosByRoom);
-        setPhotoUrls({});
-        setRoomComplete({});
-        setDetailsError(null);
-        setDetailsLoading(false);
-        setSelectedPropertyId(propertyId);
-        setStep("property-details");
       }
     } catch {
       setCreateError("Something went wrong. Please try again.");
@@ -383,9 +430,10 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     }
   };
 
+  const detailsLoadedForPropertyRef = useRef<string | number | null>(null);
   useEffect(() => {
     if (step !== "property-details" || !selectedPropertyId) return;
-    if (propertyDetail?.id === selectedPropertyId && propertyRooms.length > 0) return;
+    if (detailsLoadedForPropertyRef.current === selectedPropertyId) return;
     (async () => {
       setDetailsLoading(true);
       setDetailsError(null);
@@ -413,22 +461,35 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
         setPropertyDetail(prop as PropertyDetail);
 
-        const { data: roomsData } = await supabase
-          .from("rooms")
-          .select("id, display_name, room_type, custom_name")
+        const { data: inProgressReport } = await supabase
+          .from("reports")
+          .select("id")
           .eq("property_id", selectedPropertyId)
           .eq("user_id", user.id)
-          .order("created_at", { ascending: true });
+          .eq("status", "in_progress")
+          .maybeSingle();
 
-        const roomsList = (roomsData ?? []) as RoomDetail[];
+        const roomsList: RoomDetail[] = inProgressReport
+          ? ((await supabase
+              .from("rooms")
+              .select("id, display_name, room_type, custom_name")
+              .eq("report_id", inProgressReport.id)
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: true })).data ?? []) as RoomDetail[]
+          : [];
+
         setPropertyRooms(roomsList);
+        setSelectedReportId(inProgressReport ? String(inProgressReport.id) : null);
 
-        const { data: photosData } = await supabase
-          .from("photos")
-          .select("id, storage_path, room_id")
-          .eq("property_id", selectedPropertyId)
-          .eq("user_id", user.id)
-          .order("taken_at", { ascending: false });
+        const reportIds = inProgressReport ? [inProgressReport.id] : [];
+        const { data: photosData } = reportIds.length > 0
+          ? await supabase
+              .from("photos")
+              .select("id, storage_path, room_id")
+              .in("report_id", reportIds)
+              .eq("user_id", user.id)
+              .order("taken_at", { ascending: false })
+          : { data: [] as { id: string; storage_path: string; room_id: string }[] };
 
         const photosByRoom: Record<string, PhotoDetail[]> = {};
         for (const r of roomsList) {
@@ -451,13 +512,14 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         setPhotoUrls(urlMap);
 
         setRoomComplete({});
+        detailsLoadedForPropertyRef.current = selectedPropertyId;
       } catch {
         setDetailsError("Failed to load property details.");
       } finally {
         setDetailsLoading(false);
       }
     })();
-  }, [step, selectedPropertyId, propertyDetail?.id, propertyRooms.length, supabase.auth, onClose]);
+  }, [step, selectedPropertyId, supabase.auth, onClose]);
 
   const openCameraForRoom = (roomId: string) => {
     setRoomCompleteError(null);
@@ -496,7 +558,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
   const savePhotoFromPreview = async () => {
     const roomId = previewRoomId;
-    if (!roomId || !selectedPropertyId || !previewFile) return;
+    if (!roomId || !selectedPropertyId || !selectedReportId || !previewFile) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -524,7 +586,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         .from("photos")
         .insert({
           room_id: roomId,
-          property_id: selectedPropertyId,
+          report_id: selectedReportId,
           user_id: user.id,
           storage_path: storagePath,
           note: photoNote.trim() || null,
@@ -608,14 +670,15 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
   const handleConfirmDeleteRoom = async () => {
     const roomId = roomToDelete;
     if (!roomId || !selectedPropertyId) return;
+    if (!selectedReportId) return;
     setDetailsError(null);
     try {
       const photos = propertyPhotos[roomId] ?? [];
       for (const p of photos) {
         await supabase.storage.from("photos").remove([p.storage_path]);
       }
-      await supabase.from("photos").delete().eq("room_id", roomId);
-      const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+      await supabase.from("photos").delete().eq("room_id", roomId).eq("report_id", selectedReportId);
+      const { error } = await supabase.from("rooms").delete().eq("id", roomId).eq("report_id", selectedReportId);
       if (error) {
         setDetailsError(error.message ?? "Failed to delete room.");
         setRoomToDelete(null);
@@ -647,6 +710,10 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
   const handleConfirmAddRoom = async () => {
     if (!selectedPropertyId) return;
+    if (!selectedReportId) {
+      setDetailsError("No report in progress. Start a report from the property page first.");
+      return;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -667,7 +734,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       const { data: newRoom, error } = await supabase
         .from("rooms")
         .insert({
-          property_id: selectedPropertyId,
+          report_id: selectedReportId,
           user_id: user.id,
           room_type: roomType,
           custom_name: isCustom ? addRoomCustomName.trim() : null,
@@ -730,15 +797,12 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
   const completedCount = propertyRooms.filter((r) => roomComplete[String(r.id)]).length;
 
-  const isAddressStepValid = () =>
-    Boolean(addressLine1.trim() && city.trim() && postcode.trim() && moveInDate.trim());
-
   const isExpanded =
     step === "property-details" ||
-    (step === "create-property" && createPropertySubStep === "property-setup");
+    (step === "create-property" && createPropertySubStep === "report-type");
 
   const flowContent = (
-    <div className="relative w-full max-w-[420px] min-h-[320px] mx-auto">
+    <div className="relative w-full max-w-[420px] mx-auto">
       <input
         ref={fileInputRef}
         type="file"
@@ -940,53 +1004,47 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
             animate={fadeScaleTransition.animate}
             exit={fadeScaleTransition.exit}
             transition={fadeScaleTransition.transition}
-            className="absolute inset-0 flex flex-col"
+            className="flex flex-col"
           >
-            <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
-              <h1
-                className="text-[#101827] font-semibold text-xl mb-2"
-                style={fontStyle}
-              >
-                Select property
-              </h1>
-              <p className="text-[#6B7280] text-sm mb-6" style={fontStyle}>
-                Choose an existing property or create a new one.
-              </p>
+            <div className="relative w-full max-w-[480px] rounded-2xl bg-white shadow-xl p-6">
+              <h2 className="text-xl font-bold mb-1" style={fontStyle}>Select property</h2>
+              <p className="text-sm text-gray-500 mb-4" style={fontStyle}>Choose an existing property or create a new one.</p>
 
-              <div className="flex flex-col gap-3 mb-4 max-h-[280px] overflow-y-auto">
-                {properties.map((property) => (
-                  <button
-                    key={property.id}
-                    type="button"
-                    onClick={() => selectExistingProperty(property)}
-                    className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-[#008bff] hover:shadow-md transition-all"
-                    style={fontStyle}
-                  >
-                    <p className="font-semibold text-[#0F172A] text-base">
-                      {formatAddress(property) || "Unnamed property"}
-                    </p>
-                    <p className="text-sm text-[#6B7280] mt-1">
-                      {property.property_type ?? "Property"}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              {properties.length > 0 && (
+                <div className="flex flex-col gap-2 mb-4 max-h-[240px] overflow-y-auto">
+                  {properties.map((property) => (
+                    <button
+                      key={property.id}
+                      type="button"
+                      onClick={() => selectExistingProperty(property)}
+                      className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-[#008bff] hover:shadow-md transition-all"
+                      style={fontStyle}
+                    >
+                      <p className="font-semibold text-[#0F172A] text-base">
+                        {formatAddress(property) || "Unnamed property"}
+                      </p>
+                      <p className="text-sm text-[#6B7280] mt-1">
+                        {property.property_type ?? "Property"}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <button
                 type="button"
                 onClick={selectAddNewProperty}
-                className="w-full py-3 rounded-xl bg-[#008bff] text-white font-medium text-base hover:bg-[#0077e6] transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-[#008bff] text-white rounded-xl py-3 font-medium"
                 style={{ ...fontStyle, color: "#ffffff" }}
               >
-                <span className="text-xl leading-none">＋</span>
-                Add New Property
+                + Add New Property
               </button>
             </div>
           </motion.div>
         )}
 
         {step === "create-property" && (
-          <div key="create-property" className="absolute inset-0 flex flex-col">
+          <div key="create-property" className="flex flex-col">
             <AnimatePresence initial={false} mode="wait">
               {createPropertySubStep === "address" && (
                 <motion.div
@@ -995,9 +1053,9 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
                   animate={fadeScaleTransition.animate}
                   exit={fadeScaleTransition.exit}
                   transition={fadeScaleTransition.transition}
-                  className="absolute inset-0 flex flex-col"
+                  className="flex flex-col"
                 >
-                  <div className="w-full max-w-[420px] bg-white rounded-2xl p-5 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
+                  <div className="w-full max-w-[420px] p-5">
                     <h1
                       className="text-[#101827] font-semibold text-xl mb-0.5"
                       style={fontStyle}
@@ -1061,60 +1119,6 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
 
                       <div>
                         <label className="block text-[#414651] font-medium text-sm mb-0.5" style={fontStyle}>
-                          Tenancy Start Date <span className="text-[#9CA3AF] font-normal">(required)</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={moveInDate}
-                          onChange={(e) => setMoveInDate(e.target.value)}
-                          className={inputClass}
-                          style={fontStyle}
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setCreatePropertySubStep("property-setup")}
-                      disabled={!isAddressStepValid()}
-                      className="w-full py-2 rounded-lg text-white font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 enabled:bg-[#008bff] enabled:hover:bg-[#0077e6] transition-colors flex items-center justify-center gap-2"
-                      style={{ ...fontStyle, color: "#ffffff" }}
-                    >
-                      Next <span aria-hidden>→</span>
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {createPropertySubStep === "property-setup" && (
-                <motion.div
-                  key="property-setup"
-                  initial={fadeScaleTransition.initial}
-                  animate={fadeScaleTransition.animate}
-                  exit={fadeScaleTransition.exit}
-                  transition={fadeScaleTransition.transition}
-                  className="absolute inset-0 flex flex-col w-full"
-                >
-                  <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
-                    <h1
-                      className="text-[#101827] font-semibold text-xl mb-2"
-                      style={fontStyle}
-                    >
-                      Property setup
-                    </h1>
-                    <p className="text-[#6B7280] text-sm mb-6" style={fontStyle}>
-                      Property type and rooms.
-                    </p>
-
-                    {createError && (
-                      <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
-                        {createError}
-                      </div>
-                    )}
-
-                    <div className="mb-4">
-                      <div>
-                        <label className="block text-[#414651] font-medium text-sm mb-1.5" style={fontStyle}>
                           Property Type
                         </label>
                         <select
@@ -1129,74 +1133,104 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
                           ))}
                         </select>
                       </div>
+
+                      <div>
+                        <label className="block text-[#414651] font-medium text-sm mb-0.5" style={fontStyle}>
+                          Tenancy Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={moveInDate}
+                          onChange={(e) => setMoveInDate(e.target.value)}
+                          className={inputClass}
+                          style={fontStyle}
+                        />
+                      </div>
                     </div>
 
-                    <div className="mb-4">
-                      <p className="text-[#6B7280] text-sm mb-2" style={fontStyle}>
-                        Add at least one room to continue. You can always add more later.
-                      </p>
-                      <p className="text-[#414651] font-medium text-sm mb-3" style={fontStyle}>
-                        Rooms
-                      </p>
-                      <div className="flex flex-col gap-3 max-h-[240px] overflow-y-auto">
-                        {rooms.map((room) => (
-                          <div
-                            key={room.id}
-                            className="rounded-xl border border-gray-200 p-4 bg-gray-50/50"
-                          >
-                            <div className="flex gap-2">
-                              <select
-                                value={room.roomType}
-                                onChange={(e) => updateRoom(room.id, { roomType: e.target.value })}
-                                className={`${inputClass} flex-1`}
-                                style={fontStyle}
-                              >
-                                <option value="">Select room type</option>
-                                {ROOM_TYPES.map((t) => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => removeRoom(room.id)}
-                                className="px-3 py-2 rounded-lg text-red-600 text-sm font-medium hover:bg-red-50 shrink-0"
-                                style={fontStyle}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            {room.roomType === "Custom" && (
-                              <input
-                                type="text"
-                                value={room.customName}
-                                onChange={(e) => updateRoom(room.id, { customName: e.target.value })}
-                                placeholder="Enter custom room name"
-                                className={`${inputClass} mt-2`}
-                                style={fontStyle}
-                              />
-                            )}
-                          </div>
-                        ))}
+                    {createError && (
+                      <div className="mb-3 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+                        {createError}
                       </div>
+                    )}
+
+                    {createFlow === "with-report" ? (
                       <button
                         type="button"
-                        onClick={addRoom}
-                        className="mt-3 w-full py-2.5 rounded-xl bg-[#0F172A] text-white font-medium text-sm hover:bg-[#1e293b] flex items-center justify-center gap-2"
+                        onClick={() => setCreatePropertySubStep("report-type")}
+                        disabled={!isAddressStepValid()}
+                        className="w-full py-2 rounded-lg text-white font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 enabled:bg-[#008bff] enabled:hover:bg-[#0077e6] transition-colors flex items-center justify-center gap-2"
                         style={{ ...fontStyle, color: "#ffffff" }}
                       >
-                        <span className="text-lg leading-none">＋</span>
-                        Add Room
+                        Next <span aria-hidden>→</span>
                       </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleCreatePropertyOnly}
+                        disabled={!isAddressStepValid() || createLoading}
+                        className="w-full py-2 rounded-lg text-white font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 enabled:bg-[#008bff] enabled:hover:bg-[#0077e6] transition-colors flex items-center justify-center gap-2"
+                        style={{ ...fontStyle, color: "#ffffff" }}
+                      >
+                        {createLoading ? "Creating…" : "Create Property"}
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {createPropertySubStep === "report-type" && createFlow === "with-report" && (
+                <motion.div
+                  key="report-type"
+                  initial={fadeScaleTransition.initial}
+                  animate={fadeScaleTransition.animate}
+                  exit={fadeScaleTransition.exit}
+                  transition={fadeScaleTransition.transition}
+                  className="flex flex-col"
+                >
+                  <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
+                    <h1
+                      className="text-[#101827] font-semibold text-xl mb-2"
+                      style={fontStyle}
+                    >
+                      Report type
+                    </h1>
+                    <p className="text-[#6B7280] text-sm mb-6" style={fontStyle}>
+                      Choose the type of report to start.
+                    </p>
+
+                    {createError && (
+                      <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+                        {createError}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2 mb-6">
+                      {REPORT_TYPES_CREATE.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setCreateReportType(value)}
+                          className={`w-full py-3 px-4 rounded-xl border-2 text-left font-medium transition-colors ${
+                            createReportType === value
+                              ? "border-[#008bff] bg-[#008bff]/5 text-[#008bff]"
+                              : "border-gray-200 bg-white text-[#101827] hover:border-gray-300"
+                          }`}
+                          style={fontStyle}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
 
                     <button
                       type="button"
-                      onClick={handleCreateProperty}
-                      disabled={!isCreateFormValid() || createLoading}
+                      onClick={handleCreatePropertyAndReport}
+                      disabled={createLoading}
                       className="w-full py-3 rounded-lg text-white font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 enabled:bg-[#008bff] enabled:hover:bg-[#0077e6] transition-colors mb-4"
                       style={{ ...fontStyle, color: "#ffffff" }}
                     >
-                      {createLoading ? "Saving…" : "Create Property"}
+                      {createLoading ? "Creating…" : "Create & Start Report"}
                     </button>
 
                     <button
@@ -1221,7 +1255,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
             animate={fadeScaleTransition.animate}
             exit={fadeScaleTransition.exit}
             transition={fadeScaleTransition.transition}
-            className="absolute inset-0 flex flex-col"
+            className="flex flex-col"
           >
             <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
               <h1
@@ -1438,7 +1472,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
             animate={fadeScaleTransition.animate}
             exit={fadeScaleTransition.exit}
             transition={fadeScaleTransition.transition}
-            className="absolute inset-0 flex flex-col"
+            className="flex flex-col"
           >
             <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]">
               <h1
@@ -1488,19 +1522,11 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
             aria-hidden
           />
           <motion.div
-            className="relative w-full max-w-[480px] rounded-2xl bg-[#F8F8F8] overflow-hidden flex flex-col shadow-xl"
-            initial={{ opacity: 0, scale: 0.96, height: "min(600px, 92vh)" }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              height: isExpanded ? "90vh" : "min(600px, 92vh)",
-            }}
+            className="relative w-full max-w-[480px] rounded-2xl bg-[#F8F8F8] shadow-xl"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
-            transition={{
-              opacity: { duration: 0.2, ease: "easeOut" },
-              scale: { duration: 0.2, ease: "easeOut" },
-              height: { type: "spring", damping: 25, stiffness: 200 },
-            }}
+            transition={{ opacity: { duration: 0.2, ease: "easeOut" }, scale: { duration: 0.2, ease: "easeOut" } }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1514,9 +1540,9 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-            <div className="flex-1 overflow-y-auto p-5 pt-12">
+            <div className="p-5 pt-12">
               {loading ? (
-                <div className="min-h-[320px] flex items-center justify-center">
+                <div className="flex items-center justify-center">
                   <div className="w-8 h-8 border-2 border-[#008bff] border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : (

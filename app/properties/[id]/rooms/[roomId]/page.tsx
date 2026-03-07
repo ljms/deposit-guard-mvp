@@ -30,9 +30,8 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
 
   const { data: room, error: roomError } = await supabase
     .from("rooms")
-    .select("id, display_name, room_type, custom_name, property_id")
+    .select("id, display_name, room_type, custom_name, report_id")
     .eq("id", roomId)
-    .eq("property_id", propertyId)
     .eq("user_id", user.id)
     .single();
 
@@ -40,11 +39,16 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
     notFound();
   }
 
+  const reportId = room.report_id;
+  if (!reportId) {
+    notFound();
+  }
+
   const { data: photos } = await supabase
     .from("photos")
     .select("id, storage_path, note, taken_at")
     .eq("room_id", roomId)
-    .eq("property_id", propertyId)
+    .eq("report_id", reportId)
     .eq("user_id", user.id)
     .order("taken_at", { ascending: false });
 
@@ -62,7 +66,8 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
     <RoomDetailClient
       userId={user.id}
       property={property}
-      room={room}
+      room={{ ...room, report_id: reportId }}
+      reportId={reportId}
       isLocked={hasCompletedReport}
       initialPhotos={photos ?? []}
     />

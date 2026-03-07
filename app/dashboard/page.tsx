@@ -33,44 +33,35 @@ export default async function DashboardPage() {
   }
 
   // Get room counts (bedrooms, bathrooms) and photo counts per report
-  const propertyIds = (properties ?? []).map((p) => p.id);
+  const reportIds = (reports ?? []).map((r) => r.id);
   const roomCounts: Record<string, number> = {};
   const bedroomCounts: Record<string, number> = {};
   const bathroomCounts: Record<string, number> = {};
-  const roomsByPropertyId: Record<string, string[]> = {};
 
-  if (propertyIds.length > 0) {
+  if (reportIds.length > 0) {
     const roomData = await supabase
       .from("rooms")
-      .select("id, property_id, room_type")
-      .in("property_id", propertyIds)
+      .select("id, report_id, room_type")
+      .in("report_id", reportIds)
       .eq("user_id", user.id);
 
-    (roomData.data ?? []).forEach((r: { id: string; property_id: string; room_type: string }) => {
-      roomCounts[r.property_id] = (roomCounts[r.property_id] ?? 0) + 1;
-      if (!roomsByPropertyId[r.property_id]) roomsByPropertyId[r.property_id] = [];
-      roomsByPropertyId[r.property_id].push(r.id);
+    (roomData.data ?? []).forEach((r: { id: string; report_id: string; room_type: string }) => {
+      roomCounts[r.report_id] = (roomCounts[r.report_id] ?? 0) + 1;
       if (r.room_type === "Bedroom") {
-        bedroomCounts[r.property_id] = (bedroomCounts[r.property_id] ?? 0) + 1;
+        bedroomCounts[r.report_id] = (bedroomCounts[r.report_id] ?? 0) + 1;
       }
       if (r.room_type === "Bathroom" || r.room_type === "Ensuite") {
-        bathroomCounts[r.property_id] = (bathroomCounts[r.property_id] ?? 0) + 1;
+        bathroomCounts[r.report_id] = (bathroomCounts[r.report_id] ?? 0) + 1;
       }
     });
   }
 
   const photoCountsByReportId: Record<string, number> = {};
   for (const report of reports ?? []) {
-    const roomIds = roomsByPropertyId[String(report.property_id)] ?? [];
-    let query = supabase
+    const { count } = await supabase
       .from("photos")
       .select("id", { count: "exact", head: true })
-      .eq("property_id", report.property_id)
       .eq("report_id", report.id);
-    if (roomIds.length > 0) {
-      query = query.in("room_id", roomIds);
-    }
-    const { count } = await query;
     photoCountsByReportId[String(report.id)] = count ?? 0;
   }
 

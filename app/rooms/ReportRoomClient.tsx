@@ -168,7 +168,7 @@ export function ReportRoomClient({
         .from("rooms")
         .update({ is_complete: checked })
         .eq("id", room.id)
-        .eq("property_id", propertyId)
+        .eq("report_id", reportId)
         .eq("user_id", userId);
     } catch {
       setRoomComplete(!checked);
@@ -187,7 +187,7 @@ export function ReportRoomClient({
           notes: roomNotes.slice(0, 1000).trim() || null,
         })
         .eq("id", room.id)
-        .eq("property_id", propertyId)
+        .eq("report_id", reportId)
         .eq("user_id", userId);
 
       if (updateError) {

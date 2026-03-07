@@ -111,7 +111,7 @@ export function DashboardClient({
       if (!property) return null;
       const isCompleted =
         report.status === "completed" || Boolean(report.storage_path);
-      const roomCount = roomCounts[String(property.id)] ?? 0;
+      const roomCount = roomCounts[String(report.id)] ?? 0;
       const photoCount = photoCountsByReportId[String(report.id)] ?? 0;
       const date = report.created_at ?? property.created_at ?? null;
       return {
@@ -188,7 +188,7 @@ export function DashboardClient({
       const { data: roomsData } = await supabase
         .from("rooms")
         .select("id, display_name, room_type, custom_name, notes")
-        .eq("property_id", property.id)
+        .eq("report_id", reportData.id)
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
 
@@ -674,14 +674,19 @@ export function DashboardClient({
           setShowReportModal(false);
           router.refresh();
         }}
+        createFlow="with-report"
         onPropertySelected={(propertyId) => {
           setShowReportModal(false);
           router.push(`/properties/${propertyId}?newReport=true`);
           router.refresh();
         }}
-        onPropertyCreated={(propertyId) => {
+        onPropertyCreated={(propertyId, reportId) => {
           setShowReportModal(false);
-          router.push(`/properties/${propertyId}?newReport=true`);
+          if (reportId) {
+            router.push(`/reports/${reportId}`);
+          } else {
+            router.push(`/properties/${propertyId}?newReport=true`);
+          }
           router.refresh();
         }}
       />

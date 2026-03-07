@@ -28,17 +28,31 @@ export default async function RoomsPage({ params }: RoomsPageProps) {
     notFound();
   }
 
-  const { data: rooms } = await supabase
-    .from("rooms")
-    .select("id, room_type, custom_name, display_name, property_id, created_at")
-    .eq("property_id", property.id)
+  const { data: inProgressReport } = await supabase
+    .from("reports")
+    .select("id")
+    .eq("property_id", id)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
+    .eq("status", "in_progress")
+    .maybeSingle();
 
-  const { count: totalPhotoCount } = await supabase
-    .from("photos")
-    .select("id", { count: "exact", head: true })
-    .eq("property_id", property.id);
+  const reportId = inProgressReport?.id ?? null;
+
+  const { data: rooms } = reportId
+    ? await supabase
+        .from("rooms")
+        .select("id, room_type, custom_name, display_name, created_at")
+        .eq("report_id", reportId)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+
+  const { count: totalPhotoCount } = reportId
+    ? await supabase
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .eq("report_id", reportId)
+    : { count: 0 };
 
   const { data: reports } = await supabase
     .from("reports")
@@ -54,6 +68,7 @@ export default async function RoomsPage({ params }: RoomsPageProps) {
     <RoomsClient
       userId={user.id}
       property={property}
+      reportId={reportId}
       initialRooms={rooms ?? []}
       totalPhotoCount={totalPhotoCount ?? 0}
       initialIsLocked={hasCompletedReport}

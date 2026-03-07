@@ -72,37 +72,32 @@ export function PropertiesClient({ properties, roomCounts, reportCounts }: Prope
         return;
       }
 
-      const { data: photos } = await supabase
-        .from("photos")
-        .select("storage_path")
-        .eq("property_id", propertyId)
-        .eq("user_id", user.id);
-      const photoPaths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
-      if (photoPaths.length > 0) {
-        await supabase.storage.from("photos").remove(photoPaths);
-      }
-
       const { data: reports } = await supabase
         .from("reports")
-        .select("storage_path")
+        .select("id, storage_path")
         .eq("property_id", propertyId)
         .eq("user_id", user.id);
+
+      const reportIds = (reports ?? []).map((r) => r.id);
+      if (reportIds.length > 0) {
+        const { data: photos } = await supabase
+          .from("photos")
+          .select("storage_path")
+          .in("report_id", reportIds);
+        const photoPaths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
+        if (photoPaths.length > 0) {
+          await supabase.storage.from("photos").remove(photoPaths);
+        }
+        await supabase.from("photos").delete().in("report_id", reportIds);
+        await supabase.from("rooms").delete().in("report_id", reportIds);
+      }
+
       const reportPaths = (reports ?? []).map((r) => r.storage_path).filter(Boolean);
       if (reportPaths.length > 0) {
         await supabase.storage.from("reports").remove(reportPaths);
       }
 
-      await supabase
-        .from("photos")
-        .delete()
-        .eq("property_id", propertyId)
-        .eq("user_id", user.id);
-      await supabase
-        .from("reports")
-        .delete()
-        .eq("property_id", propertyId)
-        .eq("user_id", user.id);
-      await supabase.from("rooms").delete().eq("property_id", propertyId);
+      await supabase.from("reports").delete().eq("property_id", propertyId).eq("user_id", user.id);
 
       const { error: deleteError } = await supabase
         .from("properties")
@@ -325,12 +320,13 @@ export function PropertiesClient({ properties, roomCounts, reportCounts }: Prope
           setShowCreatePropertyModal(false);
           router.refresh();
         }}
+        createFlow="property-only"
+        startAtCreateProperty
         onPropertyCreated={(propertyId) => {
           setShowCreatePropertyModal(false);
           router.refresh();
           router.push(`/properties/${propertyId}`);
         }}
-        startAtCreateProperty
       />
 
       {/* Bottom navigation */}

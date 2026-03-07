@@ -26,8 +26,7 @@ type RoomRow = {
   room_type: RoomType;
   custom_name: string | null;
   display_name: string | null;
-  property_id: string | number;
-  created_at: string | null;
+  created_at?: string | null;
 };
 
 type Property = {
@@ -50,6 +49,7 @@ type PhotoRow = {
 type RoomsClientProps = {
   userId: string;
   property: Property;
+  reportId: string | null;
   initialRooms: RoomRow[];
   totalPhotoCount: number;
   initialIsLocked: boolean;
@@ -70,7 +70,7 @@ const ROOM_TYPES: { label: string; value: RoomType }[] = [
   { label: 'Custom', value: 'Custom' },
 ];
 
-export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, initialIsLocked }: RoomsClientProps) {
+export function RoomsClient({ userId, property, reportId, initialRooms, totalPhotoCount, initialIsLocked }: RoomsClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -171,10 +171,15 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, i
     setError(null);
 
     try {
+      if (!reportId) {
+        setError('No report in progress. Start a report from the property page first.');
+        setLoading(false);
+        return;
+      }
       const { data, error: insertError } = await supabase
         .from('rooms')
         .insert({
-          property_id: property.id,
+          report_id: reportId,
           user_id: userId,
           room_type: selectedType,
           custom_name: isCustom ? trimmedCustom : null,
@@ -205,11 +210,13 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, i
 
   async function handleDeleteRoom(id: RoomRow['id']) {
     if (isLocked) return;
+    if (!reportId) return;
     setLoading(true);
     setError(null);
 
     try {
-      const { error: deleteError } = await supabase.from('rooms').delete().eq('id', id);
+      await supabase.from('photos').delete().eq('room_id', id).eq('report_id', reportId);
+      const { error: deleteError } = await supabase.from('rooms').delete().eq('id', id).eq('report_id', reportId);
 
       if (deleteError) {
         setError(deleteError.message || 'Unable to delete room. Please try again.');
@@ -231,10 +238,15 @@ export function RoomsClient({ userId, property, initialRooms, totalPhotoCount, i
     setReportGenerating(true);
     setError(null);
     try {
+      if (!reportId) {
+        setError('No report in progress.');
+        setReportGenerating(false);
+        return;
+      }
       const { data: photos } = await supabase
         .from('photos')
         .select('id, room_id, storage_path, note, taken_at')
-        .eq('property_id', property.id)
+        .eq('report_id', reportId)
         .order('taken_at', { ascending: true });
 
       if (!photos?.length) {

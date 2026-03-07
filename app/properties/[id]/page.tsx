@@ -29,14 +29,6 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  const { data: rooms } = await supabase
-    .from("rooms")
-    .select("id")
-    .eq("property_id", property.id)
-    .eq("user_id", user.id);
-
-  const roomCount = rooms?.length ?? 0;
-
   const { data: reports } = await supabase
     .from("reports")
     .select("id, property_id, storage_path, created_at, status, report_type")
@@ -44,19 +36,25 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const roomIds = (rooms ?? []).map((r) => r.id);
+  const reportIds = (reports ?? []).map((r) => r.id);
+  let roomCount = 0;
   const photoCountsByReportId: Record<string, number> = {};
-  for (const report of reports ?? []) {
-    let query = supabase
-      .from("photos")
-      .select("id", { count: "exact", head: true })
-      .eq("property_id", property.id)
-      .eq("report_id", report.id);
-    if (roomIds.length > 0) {
-      query = query.in("room_id", roomIds);
+
+  if (reportIds.length > 0) {
+    const { data: rooms } = await supabase
+      .from("rooms")
+      .select("id")
+      .in("report_id", reportIds)
+      .eq("user_id", user.id);
+    roomCount = rooms?.length ?? 0;
+
+    for (const report of reports ?? []) {
+      const { count } = await supabase
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .eq("report_id", report.id);
+      photoCountsByReportId[String(report.id)] = count ?? 0;
     }
-    const { count } = await query;
-    photoCountsByReportId[String(report.id)] = count ?? 0;
   }
 
   return (

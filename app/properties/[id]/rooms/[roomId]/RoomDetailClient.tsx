@@ -19,7 +19,7 @@ type Room = {
   display_name: string | null;
   room_type: string;
   custom_name: string | null;
-  property_id: string | number;
+  report_id: string;
 };
 
 type Photo = {
@@ -33,6 +33,7 @@ type RoomDetailClientProps = {
   userId: string;
   property: Property;
   room: Room;
+  reportId: string;
   initialPhotos: Photo[];
   isLocked: boolean;
 };
@@ -61,6 +62,7 @@ export function RoomDetailClient({
   userId,
   property,
   room,
+  reportId,
   initialPhotos,
   isLocked,
 }: RoomDetailClientProps) {
@@ -150,7 +152,7 @@ export function RoomDetailClient({
         .from('photos')
         .insert({
           room_id: room.id,
-          property_id: property.id,
+          report_id: reportId,
           user_id: userId,
           storage_path: storagePath,
           note: note.trim() || null,

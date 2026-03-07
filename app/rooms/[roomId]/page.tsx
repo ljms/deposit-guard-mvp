@@ -42,7 +42,7 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
     .from("rooms")
     .select("id, display_name, room_type, custom_name, notes, is_complete")
     .eq("id", roomId)
-    .eq("property_id", propertyId)
+    .eq("report_id", reportId)
     .eq("user_id", user.id)
     .single();
 
@@ -53,7 +53,6 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
   const { data: photosData } = await supabase
     .from("photos")
     .select("id, storage_path, room_id, note")
-    .eq("property_id", propertyId)
     .eq("report_id", reportId)
     .eq("room_id", roomId)
     .eq("user_id", user.id)

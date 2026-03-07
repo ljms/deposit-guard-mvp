@@ -139,6 +139,8 @@ export function ReportWorkspaceClient({
   const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
   const [addRoomCustomName, setAddRoomCustomName] = useState('');
   const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
+  const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
+  const [roomDeleting, setRoomDeleting] = useState(false);
   const isLocked = reportCompleted;
 
   const completedCount = rooms.filter((r) => r.is_complete === true).length;
@@ -174,7 +176,7 @@ export function ReportWorkspaceClient({
       const { data: newRoom, error } = await supabase
         .from("rooms")
         .insert({
-          property_id: property.id,
+          report_id: reportId,
           user_id: userId,
           room_type: roomType,
           custom_name: isCustom ? addRoomCustomName.trim() : null,
@@ -218,7 +220,6 @@ export function ReportWorkspaceClient({
           .from("photos")
           .update({ report_id: reportId })
           .in("id", photoIds)
-          .eq("property_id", property.id)
           .eq("user_id", userId);
         if (photoUpdateError) throw new Error(photoUpdateError.message ?? "Failed to tag photos with report.");
       }
@@ -310,6 +311,39 @@ export function ReportWorkspaceClient({
 
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
   const roomHref = (rid: string) => `/rooms/${rid}?reportId=${reportId}`;
+
+  async function handleConfirmDeleteRoom() {
+    const rid = roomToDelete;
+    if (!rid) return;
+    setRoomDeleting(true);
+    setDetailsError(null);
+    try {
+      const photos = propertyPhotos[rid] ?? [];
+      for (const p of photos) {
+        if (p.storage_path) {
+          await supabase.storage.from("photos").remove([p.storage_path]);
+        }
+      }
+      await supabase.from("photos").delete().eq("room_id", rid).eq("report_id", reportId);
+      const { error } = await supabase.from("rooms").delete().eq("id", rid).eq("report_id", reportId);
+      if (error) {
+        setDetailsError(error.message ?? "Failed to delete room.");
+        setRoomDeleting(false);
+        return;
+      }
+      setRooms((prev) => prev.filter((r) => String(r.id) !== rid));
+      setPropertyPhotos((prev) => {
+        const next = { ...prev };
+        delete next[rid];
+        return next;
+      });
+      setRoomToDelete(null);
+    } catch {
+      setDetailsError("Something went wrong. Please try again.");
+    } finally {
+      setRoomDeleting(false);
+    }
+  }
 
   return (
     <PageWrapper>
@@ -607,38 +641,99 @@ export function ReportWorkspaceClient({
             const roomName = room.display_name || room.room_type || "Room";
 
             return (
-              <Link
+              <div
                 key={room.id}
-                href={roomHref(rid)}
-                className="rounded-xl border border-gray-200 p-4 bg-white flex items-center gap-3 active:opacity-75 transition-opacity tap-feedback-touch"
-                style={{ WebkitTapHighlightColor: "transparent" }}
+                className="rounded-xl border border-gray-200 p-4 bg-white flex items-center gap-3"
               >
-                <span className="shrink-0 w-6 h-6 flex items-center justify-center" aria-hidden>
-                  {isComplete ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6L9 17l-5-5" />
+                <Link
+                  href={roomHref(rid)}
+                  className="flex-1 flex items-center gap-3 min-w-0 active:opacity-75 transition-opacity tap-feedback-touch"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <span className="shrink-0 w-6 h-6 flex items-center justify-center" aria-hidden>
+                    {isComplete ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                    )}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[#0F172A] text-base" style={fontStyle}>
+                      {roomName}
+                    </p>
+                    <p className="text-sm text-[#6B7280]" style={fontStyle}>
+                      {photoCount === 0 ? "0 photos" : photoCount === 1 ? "1 photo" : `${photoCount} photos`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-gray-400" aria-hidden>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
                     </svg>
-                  ) : (
-                    <span className="w-5 h-5 rounded-full border-2 border-gray-300" />
-                  )}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#0F172A] text-base" style={fontStyle}>
-                    {roomName}
-                  </p>
-                  <p className="text-sm text-[#6B7280]" style={fontStyle}>
-                    {photoCount === 0 ? "0 photos" : photoCount === 1 ? "1 photo" : `${photoCount} photos`}
-                  </p>
-                </div>
-                <span className="shrink-0 text-gray-400" aria-hidden>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </span>
-              </Link>
+                  </span>
+                </Link>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setRoomToDelete(rid);
+                    }}
+                    className="shrink-0 p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                    aria-label={`Delete ${roomName}`}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
+
+        {roomToDelete !== null && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+            onClick={() => !roomDeleting && setRoomToDelete(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+                Delete this room?
+              </h2>
+              <p className="text-sm text-gray-500 mb-6" style={fontStyle}>
+                All photos in this room will also be deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => !roomDeleting && setRoomToDelete(null)}
+                  disabled={roomDeleting}
+                  className="flex-1 py-2.5 rounded-lg border border-gray-200 bg-white text-[#0F172A] font-medium text-sm disabled:opacity-50"
+                  style={fontStyle}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteRoom}
+                  disabled={roomDeleting}
+                  className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50"
+                  style={{ ...fontStyle, color: "#ffffff" }}
+                >
+                  {roomDeleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {!isLocked && (
           <button
