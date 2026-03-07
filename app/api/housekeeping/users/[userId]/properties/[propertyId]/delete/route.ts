@@ -60,7 +60,7 @@ export async function POST(
     }
 
     if (reportPaths.length > 0) {
-      await admin.storage.from("reports").remove(reportPaths);
+      await admin.storage.from("reports").remove(reportPaths.filter((p): p is string => p !== null));
     }
 
     await admin.from("reports").delete().eq("property_id", propertyId);
