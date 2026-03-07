@@ -269,7 +269,7 @@ export default function HomePage() {
                       onClick={() => goTo("signup")}
                       className="text-[#008BFF] font-medium hover:underline"
                     >
-                      Create Account
+                      Create account
                     </button>
                   </p>
                 </div>
@@ -396,7 +396,7 @@ export default function HomePage() {
                   className="text-[#101827] font-semibold text-xl leading-[1.8] mb-6"
                   style={fontStyle}
                 >
-                  Set Up Your Account
+                  Register your account
                 </h1>
                 {error && (
                   <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
@@ -503,7 +503,7 @@ export default function HomePage() {
                     className="w-full py-3 rounded-lg font-medium text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-500 enabled:bg-[#008bff] enabled:text-white enabled:hover:bg-[#0077e6]"
                     style={{ ...fontStyle, color: "#ffffff" }}
                   >
-                    {loading ? "Creating account…" : "Create Account"}
+                    {loading ? "Creating account…" : "Create account"}
                   </button>
                 </form>
                 <p className="mt-6 text-center text-[#6B7280] text-sm" style={fontStyle}>

@@ -6,8 +6,13 @@ type ReportPageProps = {
   params: Promise<{ reportId: string }>;
 };
 
-export default async function ReportPage({ params }: ReportPageProps) {
+type ReportPagePropsWithSearch = ReportPageProps & {
+  searchParams?: Promise<{ payment?: string }>;
+};
+
+export default async function ReportPage({ params, searchParams }: ReportPagePropsWithSearch) {
   const { reportId } = await params;
+  const resolvedSearchParams = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -20,7 +25,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status, storage_path, report_type, completed_at, checkout_date_local, movein_date_local")
+    .select("id, property_id, status, storage_path, report_type, completed_at, checkout_date_local, movein_date_local, payment_status")
     .eq("id", reportId)
     .eq("user_id", user.id)
     .single();
@@ -68,8 +73,10 @@ export default async function ReportPage({ params }: ReportPageProps) {
       completedAt={report?.completed_at ?? null}
       checkoutAtLocal={report?.checkout_date_local ?? null}
       moveinDateLocal={report?.movein_date_local ?? null}
+      paymentStatus={report?.payment_status ?? "unpaid"}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
+      paymentSuccessFromUrl={resolvedSearchParams?.payment === "success" || (Array.isArray(resolvedSearchParams?.payment) && resolvedSearchParams.payment.includes("success"))}
     />
   );
 }

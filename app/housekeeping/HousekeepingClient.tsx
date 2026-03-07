@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 type UserRow = {
   id: string;
@@ -25,6 +25,35 @@ export function HousekeepingClient({
   users,
 }: HousekeepingClientProps) {
   const [search, setSearch] = useState("");
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.ok ? res.json() : { payments_enabled: false })
+      .then((data) => {
+        setPaymentsEnabled(Boolean(data.payments_enabled));
+      })
+      .catch(() => setPaymentsEnabled(false))
+      .finally(() => setPaymentsLoading(false));
+  }, []);
+
+  async function handlePaymentsToggle() {
+    const next = !paymentsEnabled;
+    setPaymentsEnabled(next);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payments_enabled: next }),
+      });
+      if (!res.ok) {
+        setPaymentsEnabled(!next);
+      }
+    } catch {
+      setPaymentsEnabled(!next);
+    }
+  }
 
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -132,6 +161,87 @@ export function HousekeepingClient({
               </p>
             </div>
           ))}
+        </section>
+
+        <section
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: "0.75rem",
+            border: "1px solid #E2E8F0",
+            padding: "1.25rem 1.5rem",
+            marginBottom: "2rem",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "#0F172A",
+              margin: "0 0 0.85rem 0",
+            }}
+          >
+            Payments
+          </h2>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+            }}
+          >
+            <label
+              style={{
+                fontSize: "0.9rem",
+                color: "#64748B",
+                cursor: paymentsLoading ? "default" : "pointer",
+              }}
+            >
+              Payment required to generate reports
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={paymentsEnabled}
+                disabled={paymentsLoading}
+                onClick={handlePaymentsToggle}
+                style={{
+                  width: "44px",
+                  height: "24px",
+                  borderRadius: "9999px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: paymentsEnabled ? "#2563EB" : "#E2E8F0",
+                  cursor: paymentsLoading ? "not-allowed" : "pointer",
+                  position: "relative",
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: paymentsEnabled ? "22px" : "2px",
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    transition: "left 0.2s ease",
+                  }}
+                />
+              </button>
+              <span
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  color: "#0F172A",
+                }}
+              >
+                {paymentsLoading ? "…" : paymentsEnabled ? "Payments on" : "Payments off"}
+              </span>
+            </div>
+          </div>
         </section>
 
         <section

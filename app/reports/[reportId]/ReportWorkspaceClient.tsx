@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -65,8 +65,10 @@ type ReportWorkspaceClientProps = {
   completedAt?: string | null;
   checkoutAtLocal?: string | null;
   moveinDateLocal?: string | null;
+  paymentStatus?: string;
   rooms: Room[];
   photosData: Photo[];
+  paymentSuccessFromUrl?: boolean;
 };
 
 function formatAddress(p: Property): string {
@@ -111,11 +113,40 @@ export function ReportWorkspaceClient({
   completedAt,
   checkoutAtLocal,
   moveinDateLocal,
+  paymentStatus = "unpaid",
   rooms: initialRooms,
   photosData,
+  paymentSuccessFromUrl = false,
 }: ReportWorkspaceClientProps) {
   const router = useRouter();
   const supabase = createClient();
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [paymentsSettingsLoaded, setPaymentsSettingsLoaded] = useState(false);
+  const [paymentSuccessMessage, setPaymentSuccessMessage] = useState(false);
+  const paymentSuccessHandled = useRef(false);
+  const generateReportRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => (res.ok ? res.json() : { payments_enabled: false }))
+      .then((data) => {
+        setPaymentsEnabled(Boolean(data.payments_enabled));
+      })
+      .catch(() => setPaymentsEnabled(false))
+      .finally(() => setPaymentsSettingsLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!paymentSuccessFromUrl || paymentSuccessHandled.current) return;
+    paymentSuccessHandled.current = true;
+    setPaymentSuccessMessage(true);
+    router.replace(`/reports/${reportId}`, { scroll: false });
+    const t = setTimeout(() => {
+      setPaymentSuccessMessage(false);
+      generateReportRef.current();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [paymentSuccessFromUrl, reportId, router]);
 
   const [checkoutDateInput, setCheckoutDateInput] = useState("");
   const [checkoutDateSaving, setCheckoutDateSaving] = useState(false);
@@ -141,6 +172,7 @@ export function ReportWorkspaceClient({
   const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
   const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
   const [roomDeleting, setRoomDeleting] = useState(false);
+  const [paymentRedirecting, setPaymentRedirecting] = useState(false);
   const isLocked = reportCompleted;
 
   const completedCount = rooms.filter((r) => r.is_complete === true).length;
@@ -247,6 +279,40 @@ export function ReportWorkspaceClient({
       setDetailsError(err instanceof Error ? err.message : "Failed to generate report.");
     } finally {
       setReportGenerating(false);
+    }
+  }
+
+  useEffect(() => {
+    generateReportRef.current = generateReport;
+  });
+
+  async function handleFinishAndPay() {
+    if (!allRoomsComplete()) {
+      setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
+      return;
+    }
+    setDetailsError(null);
+    setPaymentRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.alreadyPaid) {
+        router.refresh();
+        return;
+      }
+      if (!res.ok || !data.url) {
+        setDetailsError(data.error ?? "Could not start checkout. Please try again.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setDetailsError("Something went wrong. Please try again.");
+    } finally {
+      setPaymentRedirecting(false);
     }
   }
 
@@ -538,6 +604,11 @@ export function ReportWorkspaceClient({
             <span>This report has been completed and is locked.</span>
           </div>
         )}
+        {paymentSuccessMessage && (
+          <div className="mb-4 py-2.5 px-3 rounded-lg bg-green-50 text-green-800 text-sm border border-green-200 flex items-center gap-2" style={fontStyle}>
+            <span>Payment confirmed — your report is ready to generate.</span>
+          </div>
+        )}
         {detailsError && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
             {detailsError}
@@ -761,26 +832,43 @@ export function ReportWorkspaceClient({
               {reportGenerating ? "Downloading…" : "Download Report"}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (reportGenerating) return;
-                if (!allRoomsComplete()) {
-                  setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
-                  return;
-                }
-                setShowGenerateConfirmModal(true);
-              }}
-              disabled={reportGenerating}
-              className={`w-full py-3 rounded-lg font-medium text-base transition-colors pointer-events-auto ${
-                reportGenerating || !allRoomsComplete()
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-[#008bff] text-white hover:bg-[#0077e6]"
-              }`}
-              style={{ ...fontStyle, color: reportGenerating || !allRoomsComplete() ? undefined : "#ffffff" }}
-            >
-              {reportGenerating ? "Generating…" : "Finish Report"}
-            </button>
+            (() => {
+              const needsPayment = paymentsSettingsLoaded && paymentsEnabled && paymentStatus !== "paid";
+              const isPayFlow = needsPayment;
+              const disabled = reportGenerating || paymentRedirecting || !allRoomsComplete();
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (disabled) return;
+                    if (isPayFlow) {
+                      handleFinishAndPay();
+                    } else {
+                      if (!allRoomsComplete()) {
+                        setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
+                        return;
+                      }
+                      setShowGenerateConfirmModal(true);
+                    }
+                  }}
+                  disabled={disabled}
+                  className={`w-full py-3 rounded-lg font-medium text-base transition-colors pointer-events-auto ${
+                    disabled
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-[#008bff] text-white hover:bg-[#0077e6]"
+                  }`}
+                  style={{ ...fontStyle, color: disabled ? undefined : "#ffffff" }}
+                >
+                  {paymentRedirecting
+                    ? "Redirecting…"
+                    : reportGenerating
+                      ? "Generating…"
+                      : isPayFlow
+                        ? "Finish & Pay"
+                        : "Generate Report"}
+                </button>
+              );
+            })()
           )}
         </div>
       </div>
