@@ -4,7 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+
+const fadeScaleTransition = {
+  initial: { opacity: 0, scale: 0.98 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.98 },
+  transition: { duration: 0.2, ease: 'easeInOut' as const },
+};
 
 type Property = {
   id: string | number;
@@ -112,6 +120,7 @@ export function RoomDetailClient({
     if (isLocked) return;
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
+    setNote('');
     setPreviewFile(file);
     const reader = new FileReader();
     reader.onload = () => setPreviewDataUrl(reader.result as string);
@@ -294,7 +303,7 @@ export function RoomDetailClient({
           </div>
         )}
 
-        {step === 'idle' && !isLocked && (
+        {!isLocked && (
           <>
             <input
               ref={fileInputRef}
@@ -321,88 +330,128 @@ export function RoomDetailClient({
           </>
         )}
 
-        {step === 'preview' && previewDataUrl && !isLocked && (
-          <div style={CARD_STYLE}>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#0F172A', marginBottom: '0.75rem' }}>
-              Preview
-            </p>
-            <div
-              style={{
-                borderRadius: '0.75rem',
-                overflow: 'hidden',
-                marginBottom: '1rem',
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewDataUrl}
-                alt="Preview"
+        <AnimatePresence>
+          {step === 'preview' && previewDataUrl && !isLocked && (
+            <motion.div
+              key="photo-preview-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
                 style={{
-                  display: 'block',
-                  maxWidth: '100%',
-                  maxHeight: '50vh',
-                  width: 'auto',
-                  height: 'auto',
-                  objectFit: 'contain',
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 50,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1rem',
+                  overflowY: 'auto',
                 }}
-              />
-            </div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#0F172A', marginBottom: '0.5rem' }}>
-              Add an optional note
-            </p>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value.slice(0, 500))}
-              placeholder="e.g. Scratch on wall near door, approximately 15cm long"
-              maxLength={500}
-              style={{
-                width: '100%',
-                padding: '0.75rem 0.9rem',
-                borderRadius: '0.75rem',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.95rem',
-                outline: 'none',
-                color: '#0F172A',
-                marginBottom: '0.5rem',
-              }}
-            />
-            <p style={{ fontSize: '0.8rem', color: '#94A3B8', marginBottom: '1rem' }}>
-              {note.length}/500
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={retake}
-                style={{
-                  flex: 1,
-                  padding: '0.85rem',
-                  borderRadius: '9999px',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: '#ffffff',
-                  color: '#0F172A',
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
+                onClick={(e) => e.target === e.currentTarget && retake()}
               >
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={savePhoto}
-                disabled={loading}
-                style={{
-                  flex: 1,
-                  ...PRIMARY_BUTTON_STYLE,
-                  backgroundColor: loading ? '#94A3B8' : '#2563EB',
-                }}
-              >
-                {loading ? 'Saving…' : 'Save Photo'}
-              </button>
-            </div>
-          </div>
-        )}
+                <motion.div
+                  {...fadeScaleTransition}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: '100%',
+                    maxWidth: '420px',
+                    maxHeight: '100%',
+                    minHeight: 'min(500px, 85vh)',
+                    overflowY: 'auto',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '1rem',
+                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: '1 1 auto',
+                      minHeight: 0,
+                      borderRadius: '0.75rem',
+                      overflow: 'hidden',
+                      backgroundColor: '#111',
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewDataUrl}
+                      alt="Preview"
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: '60vh',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, 500))}
+                    placeholder="Add a note about this photo (optional)"
+                    maxLength={500}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 0.9rem',
+                      borderRadius: '0.75rem',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.8rem', color: '#94A3B8', margin: '-0.5rem 0 0', padding: 0 }}>
+                    {note.length}/500
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                    <button
+                      type="button"
+                      onClick={retake}
+                      style={{
+                        flex: 1,
+                        padding: '0.85rem 1rem',
+                        borderRadius: '9999px',
+                        border: '1px solid #E2E8F0',
+                        backgroundColor: '#ffffff',
+                        color: '#0F172A',
+                        fontSize: '0.95rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Retake
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePhoto}
+                      disabled={loading}
+                      style={{
+                        flex: 1,
+                        padding: '0.85rem 1rem',
+                        borderRadius: '9999px',
+                        border: 'none',
+                        fontSize: '0.95rem',
+                        fontWeight: 600,
+                        backgroundColor: loading ? '#94A3B8' : '#008bff',
+                        color: '#ffffff',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {loading ? 'Saving…' : 'Save Photo'}
+                    </button>
+                  </div>
+                </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div>
           <h2

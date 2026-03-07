@@ -201,7 +201,7 @@ export function ReportWorkspaceClient({
     const sameTypeRooms = rooms.filter((r) =>
       r.room_type === "Custom" ? (r.custom_name || "").trim() === baseName : r.room_type === roomType
     );
-    const displayName = `${baseName} ${sameTypeRooms.length + 1}`;
+    const displayName = sameTypeRooms.length === 0 ? baseName : `${baseName} ${sameTypeRooms.length + 1}`;
 
     setDetailsError(null);
     try {
@@ -221,7 +221,10 @@ export function ReportWorkspaceClient({
         setDetailsError(error.message ?? "Failed to add room.");
         return;
       }
-      setRooms((prev) => [...prev, { ...(newRoom as Room), is_complete: false }]);
+      const newRoomWithComplete = { ...(newRoom as Room), is_complete: false };
+      const nextRooms = [...rooms, newRoomWithComplete];
+      const renumbered = await renumberRoomsAndPersist(nextRooms);
+      setRooms(renumbered);
       setPropertyPhotos((prev) => ({ ...prev, [String(newRoom.id)]: [] }));
       setAddRoomModalOpen(false);
       setAddRoomSelectedType(null);
@@ -378,6 +381,43 @@ export function ReportWorkspaceClient({
   const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
   const roomHref = (rid: string) => `/rooms/${rid}?reportId=${reportId}`;
 
+  function getRoomGroupKey(r: Room): string {
+    return r.room_type === "Custom" ? (r.custom_name || "Custom").trim() || "Custom" : r.room_type;
+  }
+
+  async function renumberRoomsAndPersist(roomsList: Room[]): Promise<Room[]> {
+    const groups: Record<string, Room[]> = {};
+    roomsList.forEach((room) => {
+      const key = getRoomGroupKey(room);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(room);
+    });
+    const sortedGroups = Object.values(groups).map((group) =>
+      [...group].sort((a, b) => String(a.id).localeCompare(String(b.id)))
+    );
+    const updates: { id: string | number; display_name: string }[] = [];
+    const result: Room[] = [];
+    for (const group of sortedGroups) {
+      const baseName = getRoomGroupKey(group[0]);
+      for (let i = 0; i < group.length; i++) {
+        const room = group[i];
+        const newDisplay = group.length === 1 ? baseName : `${baseName} ${i + 1}`;
+        result.push({ ...room, display_name: newDisplay });
+        if (room.display_name !== newDisplay) {
+          updates.push({ id: room.id, display_name: newDisplay });
+        }
+      }
+    }
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map((u) =>
+          supabase.from("rooms").update({ display_name: u.display_name }).eq("id", u.id).eq("report_id", reportId)
+        )
+      );
+    }
+    return result.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }
+
   async function handleConfirmDeleteRoom() {
     const rid = roomToDelete;
     if (!rid) return;
@@ -397,7 +437,9 @@ export function ReportWorkspaceClient({
         setRoomDeleting(false);
         return;
       }
-      setRooms((prev) => prev.filter((r) => String(r.id) !== rid));
+      const remaining = rooms.filter((r) => String(r.id) !== rid);
+      const renumbered = await renumberRoomsAndPersist(remaining);
+      setRooms(renumbered);
       setPropertyPhotos((prev) => {
         const next = { ...prev };
         delete next[rid];

@@ -4,8 +4,16 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import PageWrapper from "@/components/PageWrapper";
+
+const fadeScaleTransition = {
+  initial: { opacity: 0, scale: 0.98 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.98 },
+  transition: { duration: 0.2, ease: "easeInOut" as const },
+};
 
 type Room = {
   id: string | number;
@@ -401,49 +409,66 @@ export function ReportRoomClient({
           )}
         </div>
 
-        {/* Preview step - white card (inline when capturing) */}
-        {step === "preview" && previewDataUrl && !isLocked && (
-          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
-            <p className="text-[#0F172A] font-medium mb-3" style={fontStyle}>
-              Preview
-            </p>
-            <div className="rounded-lg overflow-hidden mb-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewDataUrl} alt="Preview" className="block w-full max-h-[40vh] object-contain" />
-            </div>
-            <label className="block text-sm font-medium text-[#414651] mb-1.5" style={fontStyle}>
-              Optional note for this photo
-            </label>
-            <input
-              type="text"
-              value={photoNote}
-              onChange={(e) => setPhotoNote(e.target.value.slice(0, 500))}
-              placeholder="e.g. Scratch on wall"
-              maxLength={500}
-              className="w-full py-2.5 px-3 rounded-lg border border-gray-200 text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-4"
-              style={fontStyle}
-            />
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={retake}
-                className="flex-1 py-2.5 rounded-lg border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
-                style={fontStyle}
+        {/* Photo capture modal - shown when a photo has been captured but not yet saved */}
+        <AnimatePresence>
+          {step === "preview" && previewDataUrl && !isLocked && (
+            <motion.div
+              key="photo-capture-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+              onClick={(e) => e.target === e.currentTarget && retake()}
+            >
+              <motion.div
+                {...fadeScaleTransition}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col rounded-2xl bg-white shadow-xl p-5"
               >
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={savePhoto}
-                disabled={photoSaving}
-                className="flex-1 py-2.5 rounded-xl bg-[#008bff] text-white font-semibold text-sm hover:bg-[#0077e6] disabled:opacity-50"
-                style={{ ...fontStyle, color: "#fff" }}
-              >
-                {photoSaving ? "Saving…" : "Confirm"}
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="rounded-xl overflow-hidden bg-gray-900 mb-4 flex-1 min-h-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewDataUrl}
+                    alt="Preview"
+                    className="block w-full h-auto max-h-[50vh] object-contain"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={photoNote}
+                  onChange={(e) => setPhotoNote(e.target.value.slice(0, 500))}
+                  placeholder="Add a note about this photo (optional)"
+                  maxLength={500}
+                  className="w-full py-2.5 px-3 rounded-lg border border-gray-200 text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 mb-1"
+                  style={fontStyle}
+                />
+                <p className="text-xs text-gray-400 mb-4" style={fontStyle}>
+                  {photoNote.length}/500
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={retake}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
+                    style={fontStyle}
+                  >
+                    Retake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={savePhoto}
+                    disabled={photoSaving}
+                    className="flex-1 py-2.5 rounded-xl bg-[#008bff] text-white font-semibold text-sm hover:bg-[#0077e6] disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ ...fontStyle, color: "#fff" }}
+                  >
+                    {photoSaving ? "Saving…" : "Save Photo"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bottom: stacked Take Photo + Save and Continue with small gap */}
         {!isLocked && (
