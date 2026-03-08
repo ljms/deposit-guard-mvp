@@ -110,7 +110,7 @@ export default function OnboardingPage() {
                 <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
                   {error}
                 </div>
-              }
+              )}
               <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
