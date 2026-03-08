@@ -18,6 +18,9 @@ export async function GET(request: Request) {
 
   const cookieStore = await cookies();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      flowType: "pkce",
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
