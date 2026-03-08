@@ -308,7 +308,6 @@ export async function generateReportPdf(
   const cellSize = columnWidth;
   const footerSpace = 20;
   const contentBottom = pageH - footerSpace;
-  const footerY = pageH - 10;
   const headerLogoHeight = 12;
   const captionGap = 4;
   const rowGap = 6;
