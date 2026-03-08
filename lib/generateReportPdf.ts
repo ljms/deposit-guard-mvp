@@ -101,7 +101,13 @@ export async function generateReportPdf(
     }
   }
 
-  const photosWithData: { photo: PhotoWithUrl; dataUrl: string; width: number; height: number }[] = [];
+  const photosWithData: {
+    photo: PhotoWithUrl;
+    dataUrl: string;
+    width: number;
+    height: number;
+    cellDataUrl?: string;
+  }[] = [];
 
   for (const photo of photosWithUrls) {
     const res = await fetch(photo.signedUrl);
@@ -163,6 +169,45 @@ export async function generateReportPdf(
       width: canvas.width,
       height: canvas.height,
     });
+  }
+
+  async function createSquareCellImage(
+    dataUrl: string,
+    srcW: number,
+    srcH: number,
+    pixelSize: number = 400
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = "";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = pixelSize;
+        canvas.height = pixelSize;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        const scale = pixelSize / srcW;
+        const drawH = srcH * scale;
+        if (drawH >= pixelSize) {
+          const cropH = pixelSize / scale;
+          const sy = (srcH - cropH) / 2;
+          ctx.drawImage(img, 0, sy, srcW, cropH, 0, 0, pixelSize, pixelSize);
+        } else {
+          const yOff = (pixelSize - drawH) / 2;
+          ctx.drawImage(img, 0, 0, srcW, srcH, 0, yOff, pixelSize, drawH);
+        }
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  for (const item of photosWithData) {
+    item.cellDataUrl = await createSquareCellImage(item.dataUrl, item.width, item.height);
   }
 
   async function loadAsset(path: string): Promise<string | null> {
@@ -255,33 +300,140 @@ export async function generateReportPdf(
   doc.text(String(photosWithUrls.length), margin + 38, y);
   addFooter(2);
 
-  const imgMaxW = 85;
-  const imgMaxH = 70;
+  // --- Room content pages layout (do not change cover/summary above) ---
+  const roomMargin = 15;
+  const printableWidth = pageW - 30;
+  const gutter = 4;
+  const columnWidth = (printableWidth - 2 * gutter) / 3;
+  const cellSize = columnWidth;
+  const footerSpace = 20;
+  const contentBottom = pageH - footerSpace;
+  const footerY = pageH - 10;
+  const headerLogoHeight = 12;
+  const captionGap = 4;
+  const rowGap = 6;
+  const ptToMm = 25.4 / 72;
+
+  function addRoomPageHeader(): number {
+    const headerTop = roomMargin;
+    if (logoDataUrl) {
+      try {
+        const props = doc.getImageProperties(logoDataUrl);
+        const logoW = (headerLogoHeight * props.width) / props.height;
+        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, logoW, headerLogoHeight);
+      } catch {
+        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, 40, headerLogoHeight);
+      }
+    }
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Property Condition Report", pageW / 2, headerTop + headerLogoHeight / 2 + 2, { align: "center" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(addressFull || "—", pageW - roomMargin, headerTop + headerLogoHeight / 2 + 2, { align: "right" });
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.35);
+    const lineY = headerTop + headerLogoHeight + 2;
+    doc.line(roomMargin, lineY, pageW - roomMargin, lineY);
+    return lineY + 5;
+  }
+
+  function addRoomPageFooter(pageNum: number) {
+    doc.setFontSize(7);
+    doc.setTextColor(136, 136, 136);
+    doc.text("Report ID", roomMargin, footerY - 4);
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(reportId, roomMargin, footerY);
+    doc.setFontSize(10);
+    doc.setTextColor(136, 136, 136);
+    doc.text(`Page ${pageNum}`, pageW - roomMargin, footerY, { align: "right" });
+  }
+
+  function formatTimestamp(iso: string | null | undefined): string {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const tz = d.toLocaleTimeString("en-GB", { timeZoneName: "short" }).split(" ").pop() ?? "GMT";
+    return `${date}, ${time} ${tz}`;
+  }
+
+  function getCaptionHeight(photo: PhotoWithUrl, _index: number, _total: number): number {
+    let h = 7 * ptToMm + 8 * ptToMm + 2 + 7 * ptToMm;
+    if (photo.note && photo.note.trim()) h += 8 * ptToMm;
+    return h;
+  }
+
+  function drawCaption(
+    photo: PhotoWithUrl,
+    index: number,
+    total: number,
+    x: number,
+    y: number,
+    cellW: number
+  ): void {
+    doc.setFontSize(7);
+    doc.setTextColor(136, 136, 136);
+    doc.text(`Photo ${index + 1} of ${total}`, x, y);
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(formatTimestamp(photo.taken_at), x, y + 7 * ptToMm);
+    doc.setFontSize(7);
+    doc.setTextColor(136, 136, 136);
+    doc.text("Notes", x, y + 7 * ptToMm + 8 * ptToMm + 2);
+    if (photo.note && photo.note.trim()) {
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text(photo.note.trim(), x, y + 7 * ptToMm + 8 * ptToMm + 2 + 7 * ptToMm, { maxWidth: cellW });
+    }
+  }
+
   rooms.forEach((room) => {
     const roomPhotos = photosWithData.filter((p) => String(p.photo.room_id) === String(room.id));
     if (roomPhotos.length === 0) return;
 
     doc.addPage();
-    addHeader();
-    let gridY = margin + 40;
-    doc.setFontSize(18);
+    let contentY = addRoomPageHeader();
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(17, 24, 39);
-    doc.text(room.display_name || room.room_type || "Room", margin, gridY);
-    gridY += 12;
+    doc.text(room.display_name || room.room_type || "Room", roomMargin, contentY);
+    contentY += 8;
 
-    const cols = 3;
-    roomPhotos.forEach((item, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const x = margin + col * (imgMaxW + 4);
-      const imgY = gridY + row * (imgMaxH + 4);
-      const scale = Math.min(imgMaxW / item.width, imgMaxH / item.height, 1);
-      const w = item.width * scale;
-      const h = item.height * scale;
-      doc.addImage(item.dataUrl, "JPEG", x, imgY, w, h);
-    });
-    addFooter(doc.getNumberOfPages());
+    const totalInRoom = roomPhotos.length;
+    const photosPerRow = 3;
+
+    for (let rowStart = 0; rowStart < roomPhotos.length; rowStart += photosPerRow) {
+      const rowPhotos = roomPhotos.slice(rowStart, rowStart + photosPerRow);
+      const maxCaptionH = Math.max(...rowPhotos.map((item, i) => getCaptionHeight(item.photo, rowStart + i, totalInRoom)));
+      const rowHeight = cellSize + captionGap + maxCaptionH;
+      const neededY = contentY + rowHeight + (rowStart + photosPerRow <= roomPhotos.length ? rowGap : 0);
+
+      if (neededY > contentBottom) {
+        addRoomPageFooter(doc.getNumberOfPages());
+        doc.addPage();
+        contentY = addRoomPageHeader();
+      }
+
+      for (let col = 0; col < rowPhotos.length; col++) {
+        const item = rowPhotos[col];
+        const x = roomMargin + col * (columnWidth + gutter);
+        const imgData = item.cellDataUrl ?? item.dataUrl;
+        doc.addImage(imgData, "JPEG", x, contentY, cellSize, cellSize);
+
+        const captionY = contentY + cellSize + captionGap;
+        drawCaption(item.photo, rowStart + col, totalInRoom, x, captionY, columnWidth);
+      }
+
+      const maxCaptionHThisRow = Math.max(
+        ...rowPhotos.map((item, i) => getCaptionHeight(item.photo, rowStart + i, totalInRoom))
+      );
+      contentY += cellSize + captionGap + maxCaptionHThisRow + rowGap;
+    }
+
+    addRoomPageFooter(doc.getNumberOfPages());
   });
 
   const safeAddress = (property.address_line1 || "Property")
