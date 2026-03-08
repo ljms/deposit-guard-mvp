@@ -189,6 +189,12 @@ export async function generateReportPdf(
           resolve(dataUrl);
           return;
         }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, pixelSize, pixelSize);
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(0, 0, pixelSize, pixelSize, 20);
+        ctx.clip();
         const scale = pixelSize / srcW;
         const drawH = srcH * scale;
         if (drawH >= pixelSize) {
@@ -199,6 +205,7 @@ export async function generateReportPdf(
           const yOff = (pixelSize - drawH) / 2;
           ctx.drawImage(img, 0, 0, srcW, srcH, 0, yOff, pixelSize, drawH);
         }
+        ctx.restore();
         resolve(canvas.toDataURL("image/jpeg", 0.9));
       };
       img.onerror = () => resolve(dataUrl);
@@ -305,13 +312,29 @@ export async function generateReportPdf(
   const printableWidth = pageW - 30;
   const gutter = 4;
   const columnWidth = (printableWidth - 2 * gutter) / 3;
-  const cellSize = columnWidth;
+  const cellWidth = columnWidth;
+  const cellHeight = columnWidth * 1.2;
   const footerSpace = 20;
   const contentBottom = pageH - footerSpace;
+  const roomFooterY = pageH - 12;
   const headerLogoHeight = 12;
-  const captionGap = 4;
-  const rowGap = 6;
+  const captionGap = 5;
+  const captionLine1ToTimestampGap = 2;
+  const rowGap = 10;
   const ptToMm = 25.4 / 72;
+  const photoCornerRadius = 3;
+
+  function getRoomAddressLines(): [string, string] {
+    if (property.address_line1 != null && property.address_line1 !== "") {
+      const line1 = property.address_line1 + (property.address_line2 ? ", " + property.address_line2 : "");
+      const line2 = [property.city, property.postcode].filter(Boolean).join(", ") || "—";
+      return [line1.trim(), line2];
+    }
+    const full = addressFull || "—";
+    const firstComma = full.indexOf(",");
+    if (firstComma === -1) return [full, "—"];
+    return [full.slice(0, firstComma).trim(), full.slice(firstComma + 1).trim() || "—"];
+  }
 
   function addRoomPageHeader(): number {
     const headerTop = roomMargin;
@@ -328,26 +351,30 @@ export async function generateReportPdf(
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
     doc.text("Property Condition Report", pageW / 2, headerTop + headerLogoHeight / 2 + 2, { align: "center" });
+    const [addrLine1, addrLine2] = getRoomAddressLines();
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(addressFull || "—", pageW - roomMargin, headerTop + headerLogoHeight / 2 + 2, { align: "right" });
+    doc.text(addrLine1, pageW - roomMargin, headerTop + headerLogoHeight / 2, { align: "right" });
+    doc.text(addrLine2, pageW - roomMargin, headerTop + headerLogoHeight / 2 + 4, { align: "right" });
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.35);
     const lineY = headerTop + headerLogoHeight + 2;
     doc.line(roomMargin, lineY, pageW - roomMargin, lineY);
-    return lineY + 5;
+    return lineY + 12;
   }
 
   function addRoomPageFooter(pageNum: number) {
     doc.setFontSize(7);
     doc.setTextColor(136, 136, 136);
-    doc.text("Report ID", roomMargin, footerY - 4);
+    doc.text("Report ID", roomMargin, roomFooterY - 4);
     doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text(reportId, roomMargin, footerY);
+    doc.text(reportId, roomMargin, roomFooterY);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(136, 136, 136);
-    doc.text(`Page ${pageNum}`, pageW - roomMargin, footerY, { align: "right" });
+    doc.text(`Page ${pageNum}`, pageW - roomMargin, roomFooterY, { align: "right" });
   }
 
   function formatTimestamp(iso: string | null | undefined): string {
@@ -360,7 +387,13 @@ export async function generateReportPdf(
   }
 
   function getCaptionHeight(photo: PhotoWithUrl, _index: number, _total: number): number {
-    let h = 7 * ptToMm + 8 * ptToMm + 2 + 7 * ptToMm;
+    const timestampToNotesGap = 2;
+    let h =
+      7 * ptToMm +
+      captionLine1ToTimestampGap +
+      8 * ptToMm +
+      timestampToNotesGap +
+      7 * ptToMm;
     if (photo.note && photo.note.trim()) h += 8 * ptToMm;
     return h;
   }
@@ -369,23 +402,45 @@ export async function generateReportPdf(
     photo: PhotoWithUrl,
     index: number,
     total: number,
-    x: number,
+    captionLeftX: number,
     y: number,
     cellW: number
   ): void {
+    const timestampToNotesGap = 2;
+    const textOpts = { align: "left" as const };
     doc.setFontSize(7);
     doc.setTextColor(136, 136, 136);
-    doc.text(`Photo ${index + 1} of ${total}`, x, y);
+    doc.text(`Photo ${index + 1} of ${total}`, captionLeftX, y, textOpts);
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
-    doc.text(formatTimestamp(photo.taken_at), x, y + 7 * ptToMm);
+    doc.text(
+      formatTimestamp(photo.taken_at),
+      captionLeftX,
+      y + 7 * ptToMm + captionLine1ToTimestampGap,
+      textOpts
+    );
     doc.setFontSize(7);
     doc.setTextColor(136, 136, 136);
-    doc.text("Notes", x, y + 7 * ptToMm + 8 * ptToMm + 2);
+    doc.text(
+      "Notes",
+      captionLeftX,
+      y + 7 * ptToMm + captionLine1ToTimestampGap + 8 * ptToMm + timestampToNotesGap,
+      textOpts
+    );
     if (photo.note && photo.note.trim()) {
       doc.setFontSize(8);
       doc.setTextColor(0, 0, 0);
-      doc.text(photo.note.trim(), x, y + 7 * ptToMm + 8 * ptToMm + 2 + 7 * ptToMm, { maxWidth: cellW });
+      doc.text(
+        photo.note.trim(),
+        captionLeftX,
+        y +
+          7 * ptToMm +
+          captionLine1ToTimestampGap +
+          8 * ptToMm +
+          timestampToNotesGap +
+          7 * ptToMm,
+        { ...textOpts, maxWidth: cellW }
+      );
     }
   }
 
@@ -395,8 +450,8 @@ export async function generateReportPdf(
 
     doc.addPage();
     let contentY = addRoomPageHeader();
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(17, 24, 39);
     doc.text(room.display_name || room.room_type || "Room", roomMargin, contentY);
     contentY += 8;
@@ -407,7 +462,7 @@ export async function generateReportPdf(
     for (let rowStart = 0; rowStart < roomPhotos.length; rowStart += photosPerRow) {
       const rowPhotos = roomPhotos.slice(rowStart, rowStart + photosPerRow);
       const maxCaptionH = Math.max(...rowPhotos.map((item, i) => getCaptionHeight(item.photo, rowStart + i, totalInRoom)));
-      const rowHeight = cellSize + captionGap + maxCaptionH;
+      const rowHeight = cellHeight + captionGap + maxCaptionH;
       const neededY = contentY + rowHeight + (rowStart + photosPerRow <= roomPhotos.length ? rowGap : 0);
 
       if (neededY > contentBottom) {
@@ -418,18 +473,18 @@ export async function generateReportPdf(
 
       for (let col = 0; col < rowPhotos.length; col++) {
         const item = rowPhotos[col];
-        const x = roomMargin + col * (columnWidth + gutter);
+        const photoLeftX = roomMargin + col * (columnWidth + gutter);
         const imgData = item.cellDataUrl ?? item.dataUrl;
-        doc.addImage(imgData, "JPEG", x, contentY, cellSize, cellSize);
+        doc.addImage(imgData, "JPEG", photoLeftX, contentY, cellWidth, cellHeight);
 
-        const captionY = contentY + cellSize + captionGap;
-        drawCaption(item.photo, rowStart + col, totalInRoom, x, captionY, columnWidth);
+        const captionY = contentY + cellHeight + captionGap;
+        drawCaption(item.photo, rowStart + col, totalInRoom, photoLeftX, captionY, cellWidth);
       }
 
       const maxCaptionHThisRow = Math.max(
         ...rowPhotos.map((item, i) => getCaptionHeight(item.photo, rowStart + i, totalInRoom))
       );
-      contentY += cellSize + captionGap + maxCaptionHThisRow + rowGap;
+      contentY += cellHeight + captionGap + maxCaptionHThisRow + rowGap;
     }
 
     addRoomPageFooter(doc.getNumberOfPages());
