@@ -3,8 +3,11 @@ import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function GET(request: Request) {
+  console.log("[auth/callback] full request URL:", request.url);
+
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  console.log("[auth/callback] code param found:", !!code);
 
   if (!code) {
     return NextResponse.redirect(new URL("/", request.url));
@@ -38,6 +41,7 @@ export async function GET(request: Request) {
   });
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
+  console.log("[auth/callback] exchangeCodeForSession error:", error ?? "(none)");
 
   if (error) {
     return NextResponse.redirect(new URL("/?error=auth_callback", request.url));
@@ -46,6 +50,7 @@ export async function GET(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log("[auth/callback] user after exchange:", user ?? "(null)");
   if (!user) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
