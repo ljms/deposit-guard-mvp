@@ -687,7 +687,7 @@ export function RoomsClient({ userId, property, reportId, initialRooms, totalPho
       >
         <button
           type="button"
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.back()}
           style={{
             alignSelf: 'flex-start',
             display: 'inline-flex',

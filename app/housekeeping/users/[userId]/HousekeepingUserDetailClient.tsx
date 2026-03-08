@@ -1,6 +1,6 @@
 'use client';
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Property, UserSummary } from "./page";
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
 };
 
 export function HousekeepingUserDetailClient({ user, properties }: Props) {
+  const router = useRouter();
   return (
     <div
       style={{
@@ -31,8 +32,9 @@ export function HousekeepingUserDetailClient({ user, properties }: Props) {
             marginBottom: "1.75rem",
           }}
         >
-          <Link
-            href="/housekeeping"
+          <button
+            type="button"
+            onClick={() => router.back()}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -40,11 +42,16 @@ export function HousekeepingUserDetailClient({ user, properties }: Props) {
               fontSize: "0.9rem",
               color: "#64748B",
               textDecoration: "none",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              font: "inherit",
             }}
           >
             <span style={{ fontSize: "1.1rem" }}>←</span>
             <span>Back to housekeeping</span>
-          </Link>
+          </button>
           <div style={{ textAlign: "right" }}>
             <p
               style={{

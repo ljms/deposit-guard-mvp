@@ -225,8 +225,9 @@ export function RoomDetailClient({
           gap: '1.25rem',
         }}
       >
-        <Link
-          href={roomsPath}
+        <button
+          type="button"
+          onClick={() => router.back()}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -235,11 +236,16 @@ export function RoomDetailClient({
             fontSize: '0.9rem',
             textDecoration: 'none',
             alignSelf: 'flex-start',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            font: 'inherit',
           }}
         >
           <span style={{ fontSize: '1.1rem' }}>←</span>
           <span>Back to rooms</span>
-        </Link>
+        </button>
 
         {isLocked && (
           <div

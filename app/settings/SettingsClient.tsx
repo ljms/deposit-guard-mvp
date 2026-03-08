@@ -127,16 +127,17 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
       <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
         <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A] bg-transparent border-none cursor-pointer"
               style={{ WebkitTapHighlightColor: 'transparent' }}
               aria-label="Back to dashboard"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
-            </Link>
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-full bg-[#E0F2FE] flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="2">

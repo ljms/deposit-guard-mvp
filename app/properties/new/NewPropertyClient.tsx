@@ -130,7 +130,7 @@ export function NewPropertyClient() {
         >
           <button
             type="button"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.back()}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

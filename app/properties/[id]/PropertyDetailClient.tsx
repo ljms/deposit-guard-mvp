@@ -423,16 +423,17 @@ export function PropertyDetailClient({
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <Link
-              href="/properties"
-              className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A]"
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="tap-feedback-touch active:opacity-75 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-[#0F172A] bg-transparent border-none cursor-pointer"
               style={{ WebkitTapHighlightColor: 'transparent' }}
               aria-label="Back to properties"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
-            </Link>
+            </button>
             <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
               Property Details
             </h1>

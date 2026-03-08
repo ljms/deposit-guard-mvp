@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 
 type UserRow = {
@@ -24,6 +25,7 @@ export function HousekeepingClient({
   totalReports,
   users,
 }: HousekeepingClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
@@ -104,16 +106,22 @@ export function HousekeepingClient({
               Admin overview of users, properties and reports.
             </p>
           </div>
-          <Link
-            href="/dashboard"
+          <button
+            type="button"
+            onClick={() => router.back()}
             style={{
               fontSize: "0.9rem",
               color: "#64748B",
               textDecoration: "none",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              font: "inherit",
             }}
           >
             ← Back to dashboard
-          </Link>
+          </button>
         </header>
 
         <section
