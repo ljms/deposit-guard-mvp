@@ -262,6 +262,32 @@ export async function generateReportPdf(
     }
   }
 
+  let logoJpegDataUrl: string | null = null;
+  if (logoDataUrl) {
+    const img = new window.Image();
+    img.src = logoDataUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+    });
+    const canvas = document.createElement("canvas");
+    const naturalW = img.naturalWidth || img.width;
+    const naturalH = img.naturalHeight || img.height;
+    const maxHeight = 80;
+    const scale = Math.min(1, maxHeight / naturalH);
+    const targetH = Math.round(naturalH * scale);
+    const targetW = Math.round(naturalW * scale);
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      logoJpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -275,7 +301,7 @@ export async function generateReportPdf(
     const logoWidth = 38;
     const logoHeight = logoWidth * 0.3;
     doc.setFontSize(11);
-    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, headerTop, logoWidth, logoHeight, "dg-logo");
+    if (logoJpegDataUrl) doc.addImage(logoJpegDataUrl, "JPEG", margin, headerTop, logoWidth, logoHeight, "dg-logo");
     doc.setTextColor(55, 65, 81);
     doc.text("Property Condition Report", pageW / 2, headerTop + 7, { align: "center" });
     if (property.address_line1) doc.text(property.address_line1, pageW - margin, headerTop + 7, { align: "right" });
@@ -406,9 +432,13 @@ export async function generateReportPdf(
       try {
         const props = doc.getImageProperties(logoDataUrl);
         const logoW = (headerLogoHeight * props.width) / props.height;
-        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, logoW, headerLogoHeight, "dg-logo");
+        if (logoJpegDataUrl) {
+          doc.addImage(logoJpegDataUrl, "JPEG", roomMargin, headerTop, logoW, headerLogoHeight, "dg-logo");
+        }
       } catch {
-        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, 40, headerLogoHeight, "dg-logo");
+        if (logoJpegDataUrl) {
+          doc.addImage(logoJpegDataUrl, "JPEG", roomMargin, headerTop, 40, headerLogoHeight, "dg-logo");
+        }
       }
     }
     doc.setFontSize(11);
