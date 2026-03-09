@@ -166,7 +166,7 @@ export async function generateReportPdf(
 
     photosWithData.push({
       photo,
-      dataUrl: canvas.toDataURL("image/jpeg", 0.75),
+      dataUrl: canvas.toDataURL("image/png"),
       width: canvas.width,
       height: canvas.height,
     });
@@ -176,7 +176,7 @@ export async function generateReportPdf(
     dataUrl: string,
     srcW: number,
     srcH: number,
-    pixelSize: number = 400
+    pixelSize: number = 800
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
@@ -207,7 +207,7 @@ export async function generateReportPdf(
           ctx.drawImage(img, 0, 0, srcW, srcH, 0, yOff, pixelSize, drawH);
         }
         ctx.restore();
-        resolve(canvas.toDataURL("image/jpeg", 0.75));
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
       };
       img.onerror = () => resolve(dataUrl);
       img.src = dataUrl;
