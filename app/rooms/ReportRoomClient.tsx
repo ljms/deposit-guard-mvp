@@ -70,6 +70,15 @@ export function ReportRoomClient({
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (viewerIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setViewerIndex(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewerIndex]);
+
   const roomName = room.display_name || room.custom_name || room.room_type || "Room";
   const reportHref = REPORT_WORKSPACE_HREF(reportId);
 
