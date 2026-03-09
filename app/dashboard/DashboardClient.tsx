@@ -97,6 +97,7 @@ export function DashboardClient({
     }
   }, [searchParams, router]);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
+  const [pdfReady, setPdfReady] = useState<Record<string, boolean>>({});
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
@@ -147,6 +148,24 @@ export function DashboardClient({
     const dateB = b.date ? new Date(b.date).getTime() : 0;
     return dateB - dateA;
   });
+
+  const completedReportIds = reportItems.filter((i) => i.isCompleted).map((i) => String(i.report.id));
+  useEffect(() => {
+    if (completedReportIds.length === 0) return;
+    const intervals: ReturnType<typeof setInterval>[] = [];
+    completedReportIds.forEach((id, idx) => {
+      const check = async () => {
+        const { data } = await supabase.from("reports").select("pdf_url").eq("id", id).single();
+        if (data?.pdf_url) {
+          setPdfReady((prev) => ({ ...prev, [id]: true }));
+          if (intervals[idx] != null) clearInterval(intervals[idx]);
+        }
+      };
+      check();
+      intervals[idx] = setInterval(check, 3000);
+    });
+    return () => intervals.forEach(clearInterval);
+  }, [completedReportIds.join(",")]);
 
   async function handleDownload(report: Report, property: Property) {
     console.log("download clicked", report.id);
@@ -579,13 +598,26 @@ export function DashboardClient({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        handleDownload(report, property);
+                        if (pdfReady[String(report.id)]) handleDownload(report, property);
                       }}
-                      disabled={downloadingReportId === String(report.id)}
-                      className="flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      disabled={!pdfReady[String(report.id)] || downloadingReportId === String(report.id)}
+                      className={
+                        pdfReady[String(report.id)]
+                          ? "flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          : "flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-500 bg-gray-400 opacity-50 cursor-not-allowed"
+                      }
                       style={fontStyle}
                     >
-                      {downloadingReportId === String(report.id) ? "Downloading…" : "Download"}
+                      {!pdfReady[String(report.id)] ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2" />
+                          Preparing PDF…
+                        </>
+                      ) : downloadingReportId === String(report.id) ? (
+                        "Downloading…"
+                      ) : (
+                        "Download"
+                      )}
                     </button>
                   </div>
                 ) : (

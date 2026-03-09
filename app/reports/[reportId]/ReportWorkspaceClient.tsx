@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import PageWrapper from "@/components/PageWrapper";
 
 type Property = {
@@ -277,6 +278,46 @@ export function ReportWorkspaceClient({
       }).catch(() => {});
 
       setReportCompleted(true);
+
+      (async () => {
+        try {
+          const { data: roomsData } = await supabase
+            .from("rooms")
+            .select("id, display_name, room_type, custom_name, notes")
+            .eq("report_id", reportId)
+            .eq("user_id", userId)
+            .order("created_at", { ascending: true });
+
+          const { data: completedReport } = await supabase
+            .from("reports")
+            .select("id, created_at, completed_at, report_type, movein_date_local")
+            .eq("id", reportId)
+            .single();
+
+          if (completedReport && roomsData) {
+            const result = await generateReportPdf(
+              reportId,
+              property,
+              {
+                id: reportId,
+                created_at: completedReport.created_at,
+                completed_at: completedReport.completed_at,
+                report_type: completedReport.report_type,
+                movein_date_local: completedReport.movein_date_local,
+              },
+              roomsData,
+              { supabase, userId },
+              true
+            );
+            if (result) {
+              await uploadAndStorePdf(result.blob, reportId, result.filename, supabase);
+            }
+          }
+        } catch {
+          // Silent failure — user can download manually from the report page which will regenerate if needed
+        }
+      })();
+
       router.replace(`/r/${reportId}`);
     } catch (err) {
       setDetailsError(err instanceof Error ? err.message : "Failed to generate report.");
@@ -353,24 +394,60 @@ export function ReportWorkspaceClient({
     try {
       const { data: report, error: reportError } = await supabase
         .from("reports")
-        .select("storage_path")
+        .select("pdf_url, report_type, completed_at, created_at, movein_date_local")
         .eq("id", reportId)
         .eq("user_id", userId)
         .single();
 
-      if (reportError || !report?.storage_path) {
-        setDetailsError("No report found to download.");
+      if (reportError || !report) {
+        setDetailsError("Report not found.");
         return;
       }
 
-      const { data, error: urlError } = await supabase.storage
-        .from("reports")
-        .createSignedUrl(report.storage_path, 3600);
-      if (urlError || !data?.signedUrl) {
-        setDetailsError(urlError?.message ?? "Failed to generate download link.");
+      if (report.pdf_url) {
+        const res = await fetch(report.pdf_url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = report.pdf_url.split("/").pop()?.split("?")[0] ?? "report.pdf";
+        a.click();
+        URL.revokeObjectURL(blobUrl);
         return;
       }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+
+      const { data: roomsData } = await supabase
+        .from("rooms")
+        .select("id, display_name, room_type, custom_name, notes")
+        .eq("report_id", reportId)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true });
+
+      const result = await generateReportPdf(
+        reportId,
+        property,
+        {
+          id: reportId,
+          created_at: report.created_at,
+          completed_at: report.completed_at,
+          report_type: report.report_type,
+          movein_date_local: report.movein_date_local,
+        },
+        roomsData ?? [],
+        { supabase, userId },
+        true
+      );
+
+      if (result) {
+        const { blob, filename } = result;
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+        await uploadAndStorePdf(blob, reportId, filename, supabase);
+      }
     } catch {
       setDetailsError("Failed to download report.");
     } finally {

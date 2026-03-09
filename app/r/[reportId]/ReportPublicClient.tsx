@@ -101,6 +101,7 @@ export function ReportPublicClient({
 }: ReportPublicClientProps) {
   const supabase = createClient();
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfReady, setPdfReady] = useState<Record<string, boolean>>({});
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
   const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
@@ -144,6 +145,25 @@ export function ReportPublicClient({
     if (viewerPhotoIndex === null || viewerRoomPhotos.length === 0) return;
     setViewerPhotoIndex((viewerPhotoIndex + 1) % viewerRoomPhotos.length);
   }, [viewerPhotoIndex, viewerRoomPhotos.length]);
+
+  useEffect(() => {
+    let t: ReturnType<typeof setInterval> | null = null;
+    const check = async () => {
+      const { data } = await supabase.from("reports").select("pdf_url").eq("id", reportId).single();
+      if (data?.pdf_url) {
+        setPdfReady((prev) => ({ ...prev, [reportId]: true }));
+        if (t) clearInterval(t);
+        return true;
+      }
+      return false;
+    };
+    check().then((ready) => {
+      if (!ready) t = setInterval(() => check(), 3000);
+    });
+    return () => {
+      if (t) clearInterval(t);
+    };
+  }, [reportId]);
 
   useEffect(() => {
     if (viewerRoomId === null) return;
@@ -276,14 +296,27 @@ export function ReportPublicClient({
           </div>
           <div className="flex flex-row gap-2 shrink-0 self-start md:pt-0">
             <button
-              onClick={handleDownloadPdf}
-              disabled={pdfGenerating}
-              className="bg-white border border-[#008bff] text-[#008bff] rounded-md px-6 py-3 text-base font-medium flex items-center gap-2 hover:bg-blue-50 transition-colors"
+              onClick={pdfReady[reportId] ? handleDownloadPdf : undefined}
+              disabled={!pdfReady[reportId] || pdfGenerating}
+              className={
+                pdfReady[reportId]
+                  ? "bg-white border border-[#008bff] text-[#008bff] rounded-md px-6 py-3 text-base font-medium flex items-center gap-2 hover:bg-blue-50 transition-colors"
+                  : "bg-gray-400 opacity-50 cursor-not-allowed rounded-md px-6 py-3 text-base font-medium flex items-center gap-2 text-white"
+              }
             >
-              <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              {pdfGenerating ? "Generating…" : "Download"}
+              {!pdfReady[reportId] ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2" />
+                  Preparing PDF…
+                </>
+              ) : (
+                <>
+                  <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {pdfGenerating ? "Generating…" : "Download"}
+                </>
+              )}
             </button>
             <button
               onClick={handleShare}
