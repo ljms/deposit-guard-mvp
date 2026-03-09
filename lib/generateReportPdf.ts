@@ -165,7 +165,7 @@ export async function generateReportPdf(
 
     photosWithData.push({
       photo,
-      dataUrl: canvas.toDataURL("image/jpeg", 0.9),
+      dataUrl: canvas.toDataURL("image/jpeg", 0.75),
       width: canvas.width,
       height: canvas.height,
     });
@@ -206,7 +206,7 @@ export async function generateReportPdf(
           ctx.drawImage(img, 0, 0, srcW, srcH, 0, yOff, pixelSize, drawH);
         }
         ctx.restore();
-        resolve(canvas.toDataURL("image/jpeg", 0.9));
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
       };
       img.onerror = () => resolve(dataUrl);
       img.src = dataUrl;
@@ -238,6 +238,24 @@ export async function generateReportPdf(
     loadAsset("/dg-logo-dark.png"),
   ]);
 
+  let coverJpegDataUrl: string | null = null;
+  if (coverDataUrl) {
+    const img = new window.Image();
+    img.src = coverDataUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      coverJpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    }
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -251,7 +269,7 @@ export async function generateReportPdf(
     const logoWidth = 38;
     const logoHeight = logoWidth * 0.3;
     doc.setFontSize(11);
-    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, headerTop, logoWidth, logoHeight);
+    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, headerTop, logoWidth, logoHeight, "dg-logo");
     doc.setTextColor(55, 65, 81);
     doc.text("Property Condition Report", pageW / 2, headerTop + 7, { align: "center" });
     if (property.address_line1) doc.text(property.address_line1, pageW - margin, headerTop + 7, { align: "right" });
@@ -282,7 +300,11 @@ export async function generateReportPdf(
     return `${date}, ${time} ${tz}`;
   }
 
-  if (coverDataUrl) doc.addImage(coverDataUrl, "PNG", 0, 0, pageW, pageH);
+  if (coverJpegDataUrl) {
+    doc.addImage(coverJpegDataUrl, "JPEG", 0, 0, pageW, pageH);
+  } else if (coverDataUrl) {
+    doc.addImage(coverDataUrl, "PNG", 0, 0, pageW, pageH);
+  }
 
   doc.addPage();
   addHeader();
@@ -378,9 +400,9 @@ export async function generateReportPdf(
       try {
         const props = doc.getImageProperties(logoDataUrl);
         const logoW = (headerLogoHeight * props.width) / props.height;
-        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, logoW, headerLogoHeight);
+        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, logoW, headerLogoHeight, "dg-logo");
       } catch {
-        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, 40, headerLogoHeight);
+        doc.addImage(logoDataUrl, "PNG", roomMargin, headerTop, 40, headerLogoHeight, "dg-logo");
       }
     }
     doc.setFontSize(11);
