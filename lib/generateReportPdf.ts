@@ -71,8 +71,9 @@ export async function generateReportPdf(
   property: PdfProperty,
   report: PdfReport,
   rooms: PdfRoom[],
-  photosOrFetch: PhotoWithUrl[] | PdfFetchOptions
-): Promise<void> {
+  photosOrFetch: PhotoWithUrl[] | PdfFetchOptions,
+  returnBlob?: boolean
+): Promise<void | { blob: Blob; filename: string }> {
   let photosWithUrls: PhotoWithUrl[];
   if (Array.isArray(photosOrFetch)) {
     photosWithUrls = photosOrFetch;
@@ -583,5 +584,47 @@ export async function generateReportPdf(
   const completedDate = formatCompletedDateForFilename(report.completed_at);
   const filename = `DepositGuard_${safeAddress}_${reportTypeSlug}_${completedDate}.pdf`;
 
+  if (returnBlob) {
+    const blob = doc.output("blob") as Blob;
+    return { blob, filename };
+  }
+
   doc.save(filename);
+}
+
+export async function uploadAndStorePdf(
+  blob: Blob,
+  reportId: string,
+  filename: string,
+  supabase: SupabaseClient
+): Promise<string> {
+  const path = `${reportId}/${filename}`;
+
+  const { error: uploadError } = await supabase.storage.from("pdfs").upload(path, blob, {
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  // eslint-disable-next-line no-console
+  console.log("PDF upload result:", uploadError ?? "success");
+  if (uploadError) throw uploadError;
+
+  const { data: signed, error: signedError } = await supabase.storage
+    .from("pdfs")
+    .createSignedUrl(path, 315360000);
+  // eslint-disable-next-line no-console
+  console.log("Signed URL result:", signedError ?? signed?.signedUrl);
+  if (signedError || !signed?.signedUrl) {
+    throw signedError ?? new Error("Failed to create signed URL for PDF.");
+  }
+
+  const pdfUrl = signed.signedUrl;
+  const { error: updateError } = await supabase
+    .from("reports")
+    .update({ pdf_url: pdfUrl })
+    .eq("id", reportId);
+  // eslint-disable-next-line no-console
+  console.log("DB update result:", updateError ?? "success");
+  if (updateError) throw updateError;
+
+  return pdfUrl;
 }

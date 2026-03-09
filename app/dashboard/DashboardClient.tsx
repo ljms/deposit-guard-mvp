@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { generateReportPdf } from "@/lib/generateReportPdf";
+import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 
@@ -163,7 +163,9 @@ export function DashboardClient({
 
       const { data: reportData, error: reportError } = await supabase
         .from("reports")
-        .select("id, property_id, status, report_type, completed_at, movein_date_local, created_at")
+        .select(
+          "id, property_id, status, report_type, completed_at, movein_date_local, created_at, pdf_url"
+        )
         .eq("id", report.id)
         .eq("user_id", user.id)
         .single();
@@ -185,6 +187,19 @@ export function DashboardClient({
         return;
       }
 
+      // If a stored PDF URL already exists, download directly without regenerating.
+      if (reportData.pdf_url) {
+        const res = await fetch(reportData.pdf_url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = reportData.pdf_url.split("/").pop()?.split("?")[0] ?? "report.pdf";
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
       const { data: roomsData } = await supabase
         .from("rooms")
         .select("id, display_name, room_type, custom_name, notes")
@@ -192,7 +207,7 @@ export function DashboardClient({
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
 
-      await generateReportPdf(
+      const result = await generateReportPdf(
         String(reportData.id),
         propertyData,
         {
@@ -203,8 +218,21 @@ export function DashboardClient({
           movein_date_local: reportData.movein_date_local,
         },
         roomsData ?? [],
-        { supabase, userId: user.id }
+        { supabase, userId: user.id },
+        true
       );
+
+      if (result) {
+        const { blob, filename } = result;
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+
+        await uploadAndStorePdf(blob, String(reportData.id), filename, supabase);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong while downloading.");
     } finally {

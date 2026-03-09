@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { generateReportPdf } from "@/lib/generateReportPdf";
+import { createClient } from "@/lib/supabase/client";
+import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 
 type Property = {
   id: string | number;
@@ -98,6 +99,7 @@ export function ReportPublicClient({
   rooms,
   photosWithUrls,
 }: ReportPublicClientProps) {
+  const supabase = createClient();
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
@@ -174,7 +176,37 @@ export function ReportPublicClient({
     setPdfGenerating(true);
     setPdfError(null);
     try {
-      await generateReportPdf(reportId, property, report, rooms, photosWithUrls);
+      const { data: reportRow, error: reportError } = await supabase
+        .from("reports")
+        .select("id, pdf_url")
+        .eq("id", reportId)
+        .single();
+
+      if (!reportError && reportRow?.pdf_url) {
+        const res = await fetch(reportRow.pdf_url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = reportRow.pdf_url.split("/").pop()?.split("?")[0] ?? "report.pdf";
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      const result = await generateReportPdf(reportId, property, report, rooms, photosWithUrls, true);
+
+      if (result) {
+        const { blob, filename } = result;
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+
+        await uploadAndStorePdf(blob, reportId, filename, supabase);
+      }
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : "Failed to generate PDF.");
     } finally {
