@@ -273,6 +273,15 @@ export async function generateReportPdf(
     doc.text(`Page ${pageNum}`, pageW - margin, footerY, { align: "right" });
   }
 
+  function formatTimestamp(iso: string | null | undefined): string {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const tz = d.toLocaleTimeString("en-GB", { timeZoneName: "short" }).split(" ").pop() ?? "GMT";
+    return `${date}, ${time} ${tz}`;
+  }
+
   if (coverDataUrl) doc.addImage(coverDataUrl, "PNG", 0, 0, pageW, pageH);
 
   doc.addPage();
@@ -290,21 +299,48 @@ export async function generateReportPdf(
   doc.text("Address", margin, y);
   doc.setTextColor(15, 23, 42);
   doc.text(addressFull || "—", margin + 38, y);
-  y += 14;
+  y += 8;
   doc.setTextColor(100, 116, 139);
   doc.text("Property Type", margin, y);
   doc.setTextColor(15, 23, 42);
   doc.text(property.property_type ?? "—", margin + 38, y);
-  y += 14;
+  y += 8;
   doc.setTextColor(100, 116, 139);
   doc.text("Total Rooms", margin, y);
   doc.setTextColor(15, 23, 42);
   doc.text(String(rooms.length), margin + 38, y);
-  y += 14;
+  y += 8;
   doc.setTextColor(100, 116, 139);
   doc.text("Total Photos", margin, y);
   doc.setTextColor(15, 23, 42);
   doc.text(String(photosWithUrls.length), margin + 38, y);
+  y += 8;
+  doc.setTextColor(100, 116, 139);
+  doc.text("Tenancy Start Date", margin, y);
+  doc.setTextColor(15, 23, 42);
+  doc.text(report.movein_date_local ?? "—", margin + 38, y);
+  y += 8;
+  doc.setTextColor(100, 116, 139);
+  doc.text("Report Started", margin, y);
+  doc.setTextColor(15, 23, 42);
+  doc.text(formatTimestamp(report.created_at), margin + 38, y);
+  y += 8;
+  doc.setTextColor(100, 116, 139);
+  doc.text("Report Completed", margin, y);
+  doc.setTextColor(15, 23, 42);
+  doc.text(formatTimestamp(report.completed_at), margin + 38, y);
+  y += 8;
+  doc.setTextColor(100, 116, 139);
+  doc.text("View your report online", margin, y);
+  y += 5;
+  const viewOnlineUrl = `https://staging.depositguard.com/r/${reportId}`;
+  doc.setFillColor(11, 165, 222);
+  doc.roundedRect(margin, y, 60, 9, 2, 2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.text("View Report", margin + 30, y + 6, { align: "center" });
+  doc.link(margin, y, 60, 9, { url: viewOnlineUrl });
+  y += 14;
   addFooter(2);
 
   // --- Room content pages layout (do not change cover/summary above) ---
@@ -375,15 +411,6 @@ export async function generateReportPdf(
     doc.setFontSize(10);
     doc.setTextColor(136, 136, 136);
     doc.text(`Page ${pageNum}`, pageW - roomMargin, roomFooterY, { align: "right" });
-  }
-
-  function formatTimestamp(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-    const tz = d.toLocaleTimeString("en-GB", { timeZoneName: "short" }).split(" ").pop() ?? "GMT";
-    return `${date}, ${time} ${tz}`;
   }
 
   function getCaptionHeight(photo: PhotoWithUrl, _index: number, _total: number): number {
