@@ -247,12 +247,18 @@ export async function generateReportPdf(
       img.onerror = reject;
     });
     const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
+    const naturalW = img.naturalWidth || img.width;
+    const naturalH = img.naturalHeight || img.height;
+    const maxSide = 1754;
+    const scale = Math.min(1, maxSide / Math.max(naturalW, naturalH));
+    const targetW = Math.round(naturalW * scale);
+    const targetH = Math.round(naturalH * scale);
+    canvas.width = targetW;
+    canvas.height = targetH;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      coverJpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      coverJpegDataUrl = canvas.toDataURL("image/jpeg", 0.8);
     }
   }
 
