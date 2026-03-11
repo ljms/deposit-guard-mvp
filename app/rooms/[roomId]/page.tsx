@@ -52,7 +52,7 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
 
   const { data: photosData } = await supabase
     .from("photos")
-    .select("id, storage_path, room_id, note")
+    .select("id, storage_path, room_id, note, taken_at")
     .eq("report_id", reportId)
     .eq("room_id", roomId)
     .eq("user_id", user.id)

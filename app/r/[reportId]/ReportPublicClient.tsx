@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -92,6 +92,31 @@ type ReportPublicClientProps = {
   photosWithUrls: PhotoWithUrl[];
 };
 
+const BLUR_DATA_URL =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AJQAB/9k=";
+
+type BlurImageProps = React.ComponentProps<typeof Image>;
+
+function BlurImage(props: BlurImageProps) {
+  const { className, onLoad, ...rest } = props;
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <Image
+      {...rest}
+      placeholder="blur"
+      blurDataURL={BLUR_DATA_URL}
+      onLoad={(e) => {
+        setLoaded(true);
+        if (onLoad) onLoad(e);
+      }}
+      className={`${className ?? ""} transition-opacity duration-300 ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 export function ReportPublicClient({
   reportId,
   property,
@@ -105,6 +130,7 @@ export function ReportPublicClient({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
   const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
   const [expandedRoomIds, setExpandedRoomIds] = useState<Set<string>>(() => {
     const firstWithPhotos = rooms.find((r) =>
       photosWithUrls.some((p) => String(p.room_id) === String(r.id))
@@ -397,7 +423,7 @@ export function ReportPublicClient({
                             className="overflow-hidden text-left cursor-pointer block w-full"
                           >
                             <div className="aspect-[4/5] relative bg-gray-100 w-full">
-                              <Image
+                              <BlurImage
                                 src={photo.signedUrl}
                                 alt=""
                                 fill
@@ -445,6 +471,25 @@ export function ReportPublicClient({
           aria-label="Photo viewer"
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
           onClick={closeViewer}
+          onTouchStart={(e) => {
+            if (e.touches.length > 0) {
+              touchStartXRef.current = e.touches[0].clientX;
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (touchStartXRef.current == null || e.changedTouches.length === 0) {
+              touchStartXRef.current = null;
+              return;
+            }
+            const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+            touchStartXRef.current = null;
+            if (Math.abs(deltaX) <= 50) return;
+            if (deltaX < 0) {
+              goNext();
+            } else {
+              goPrev();
+            }
+          }}
         >
           <button
             type="button"
@@ -488,11 +533,13 @@ export function ReportPublicClient({
             className="flex flex-col items-center justify-center max-w-full max-h-full p-8 md:p-12 gap-4"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <BlurImage
               src={currentPhoto.signedUrl}
               alt=""
+              width={1600}
+              height={2000}
               className="max-w-full max-h-[70vh] object-contain"
+              unoptimized
             />
             <div className="text-center text-white/90 text-sm px-4 max-w-2xl">
               <p className="font-semibold">{formatPhotoTimestamp(currentPhoto.taken_at)}</p>
