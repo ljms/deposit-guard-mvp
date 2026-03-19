@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/purge-stale-reports",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

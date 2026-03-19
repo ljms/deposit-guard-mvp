@@ -57,6 +57,9 @@ function getReportTypeLabel(reportType: string | null | undefined): string {
   return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Check-In Report";
 }
 
+/** Sticky footer CTA when payment is still required (Stripe checkout). */
+const COMPLETE_REPORT_PAY_CTA_LABEL = "Complete Report";
+
 type ReportWorkspaceClientProps = {
   userId: string;
   reportId: string;
@@ -168,6 +171,7 @@ export function ReportWorkspaceClient({
   const [reportGenerating, setReportGenerating] = useState(false);
   const [addRoomModalOpen, setAddRoomModalOpen] = useState(false);
   const [showGenerateConfirmModal, setShowGenerateConfirmModal] = useState(false);
+  const [showIncompleteRoomsModal, setShowIncompleteRoomsModal] = useState(false);
   const [addRoomSelectedType, setAddRoomSelectedType] = useState<string | null>(null);
   const [addRoomCustomName, setAddRoomCustomName] = useState('');
   const [reportCompleted, setReportCompleted] = useState(initialReportCompleted);
@@ -332,7 +336,7 @@ export function ReportWorkspaceClient({
 
   async function handleFinishAndPay() {
     if (!allRoomsComplete()) {
-      setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
+      setShowIncompleteRoomsModal(true);
       return;
     }
     setDetailsError(null);
@@ -599,6 +603,44 @@ export function ReportWorkspaceClient({
                 Add Room
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showIncompleteRoomsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+          onClick={() => setShowIncompleteRoomsModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
+              Incomplete Rooms
+            </h2>
+            <div className="text-sm text-gray-500 mb-6 space-y-3" style={fontStyle}>
+              {rooms.filter((r) => r.is_complete !== true).length > 0 && (
+                <ul className="list-disc list-inside space-y-1 text-[#0F172A]">
+                  {rooms
+                    .filter((r) => r.is_complete !== true)
+                    .map((r) => (
+                      <li key={String(r.id)}>{r.display_name || r.room_type || "Room"}</li>
+                    ))}
+                </ul>
+              )}
+              <p className="mb-0">
+                All rooms must be marked as complete before you can finish your report.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowIncompleteRoomsModal(false)}
+              className="w-full py-2.5 rounded-lg bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6]"
+              style={{ ...fontStyle, color: "#ffffff" }}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
@@ -956,36 +998,38 @@ export function ReportWorkspaceClient({
             (() => {
               const needsPayment = paymentsSettingsLoaded && paymentsEnabled && paymentStatus !== "paid";
               const isPayFlow = needsPayment;
-              const disabled = reportGenerating || paymentRedirecting || !allRoomsComplete();
+              const busy = reportGenerating || paymentRedirecting;
+              const roomsIncomplete = !allRoomsComplete();
+              const looksDisabled = busy || roomsIncomplete;
               return (
                 <button
                   type="button"
                   onClick={() => {
-                    if (disabled) return;
+                    if (busy) return;
+                    if (!allRoomsComplete()) {
+                      setShowIncompleteRoomsModal(true);
+                      return;
+                    }
                     if (isPayFlow) {
                       handleFinishAndPay();
                     } else {
-                      if (!allRoomsComplete()) {
-                        setDetailsError("All rooms must be marked as complete before you can finish the report. Navigate to the inside of each room to do this.");
-                        return;
-                      }
                       setShowGenerateConfirmModal(true);
                     }
                   }}
-                  disabled={disabled}
+                  disabled={busy}
                   className={`w-full py-3 rounded-lg font-medium text-base transition-colors pointer-events-auto ${
-                    disabled
+                    looksDisabled
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-[#008bff] text-white hover:bg-[#0077e6]"
                   }`}
-                  style={{ ...fontStyle, color: disabled ? undefined : "#ffffff" }}
+                  style={{ ...fontStyle, color: looksDisabled ? undefined : "#ffffff" }}
                 >
                   {paymentRedirecting
                     ? "Redirecting…"
                     : reportGenerating
                       ? "Generating…"
                       : isPayFlow
-                        ? "Finish & Pay"
+                        ? COMPLETE_REPORT_PAY_CTA_LABEL
                         : "Generate Report"}
                 </button>
               );

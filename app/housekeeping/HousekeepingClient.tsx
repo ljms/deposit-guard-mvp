@@ -29,6 +29,8 @@ export function HousekeepingClient({
   const [search, setSearch] = useState("");
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -54,6 +56,41 @@ export function HousekeepingClient({
       }
     } catch {
       setPaymentsEnabled(!next);
+    }
+  }
+
+  async function handlePurgeStaleReports() {
+    setPurgeMessage(null);
+    setPurgeLoading(true);
+    try {
+      const res = await fetch("/api/housekeeping/purge-stale-reports", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPurgeMessage(
+          typeof data.error === "string"
+            ? data.error
+            : typeof data.message === "string"
+              ? data.message
+              : "Purge failed."
+        );
+        return;
+      }
+      const count = typeof data.purgedCount === "number" ? data.purgedCount : 0;
+      const ids = Array.isArray(data.reportIds) ? data.reportIds.map(String) : [];
+      setPurgeMessage(
+        count === 0
+          ? "No stale reports to purge."
+          : ids.length > 0
+            ? `Purged ${count} report${count === 1 ? "" : "s"}. IDs: ${ids.join(", ")}`
+            : `Purged ${count} report${count === 1 ? "" : "s"}.`
+      );
+    } catch {
+      setPurgeMessage("Purge failed. Please try again.");
+    } finally {
+      setPurgeLoading(false);
     }
   }
 
@@ -250,6 +287,65 @@ export function HousekeepingClient({
               </span>
             </div>
           </div>
+        </section>
+
+        <section
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: "0.75rem",
+            border: "1px solid #E2E8F0",
+            padding: "1.25rem 1.5rem",
+            marginBottom: "2rem",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "#0F172A",
+              margin: "0 0 0.85rem 0",
+            }}
+          >
+            Stale reports
+          </h2>
+          <p
+            style={{
+              fontSize: "0.9rem",
+              color: "#64748B",
+              margin: "0 0 1rem 0",
+            }}
+          >
+            Remove in-progress, unpaid reports older than 7 days (photos, rooms, and report row). Properties are not
+            affected.
+          </p>
+          <button
+            type="button"
+            onClick={handlePurgeStaleReports}
+            disabled={purgeLoading}
+            style={{
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              color: "#ffffff",
+              backgroundColor: purgeLoading ? "#94A3B8" : "#0F172A",
+              border: "none",
+              borderRadius: "0.5rem",
+              padding: "0.6rem 1rem",
+              cursor: purgeLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            {purgeLoading ? "Purging…" : "Purge Stale Reports"}
+          </button>
+          {purgeMessage && (
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#0F172A",
+                margin: "0.75rem 0 0 0",
+              }}
+            >
+              {purgeMessage}
+            </p>
+          )}
         </section>
 
         <section

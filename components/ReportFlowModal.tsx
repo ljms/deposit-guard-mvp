@@ -1496,7 +1496,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
                     className="w-full py-3 rounded-lg font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-500 enabled:bg-[#008bff] enabled:text-white enabled:hover:bg-[#0077e6] transition-colors"
                     style={{ ...fontStyle, color: allRoomsComplete() ? "#ffffff" : undefined }}
                   >
-                    Finish Report
+                    Complete Report
                   </button>
                 </>
               ) : (

@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { sendSlackNotification } from "@/lib/slack";
+
+/** First OAuth session: created_at and last_sign_in_at are set together (within a short window). */
+function isLikelyNewOAuthSignup(createdAt: string | undefined, lastSignInAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  const last = lastSignInAt ? new Date(lastSignInAt).getTime() : created;
+  return Math.abs(last - created) < 60_000;
+}
 
 export async function GET(request: Request) {
   console.log("[auth/callback] full request URL:", request.url);
@@ -53,6 +62,14 @@ export async function GET(request: Request) {
   console.log("[auth/callback] user after exchange:", user ?? "(null)");
   if (!user) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  const email = user.email;
+  if (email) {
+    const isNewSignup = isLikelyNewOAuthSignup(user.created_at, user.last_sign_in_at);
+    void sendSlackNotification(
+      isNewSignup ? `👤 New user registered: ${email}` : `🔐 User logged in: ${email}`
+    );
   }
 
   const { data: profile } = await supabase

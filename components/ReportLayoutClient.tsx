@@ -7,6 +7,8 @@ import { ReportLoadingOverlay } from "./ReportLoadingOverlay";
 export function ReportLayoutClient({ children }: { children: React.ReactNode }) {
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [fading, setFading] = useState(false);
+  const [reportReady, setReportReady] = useState(false);
+  const [minDisplayElapsed, setMinDisplayElapsed] = useState(false);
   const [isPageReady, setIsPageReady] = useState(false);
   const pathname = usePathname();
 
@@ -14,33 +16,32 @@ export function ReportLayoutClient({ children }: { children: React.ReactNode }) 
     // Reset overlay on every navigation to a report page
     setOverlayVisible(true);
     setFading(false);
+    setReportReady(false);
+    setMinDisplayElapsed(false);
+    setIsPageReady(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!overlayVisible) return;
-    // Poll for images — once the real page has mounted and images are settling, fade out
-    const poll = setInterval(() => {
-      const images = Array.from(document.querySelectorAll("img"));
-      if (images.length === 0) return;
+    const t = setTimeout(() => setMinDisplayElapsed(true), 1500);
+    return () => clearTimeout(t);
+  }, [pathname]);
+
+  useEffect(() => {
+    const onReady = () => {
+      setReportReady(true);
       setIsPageReady(true);
-      const allSettled = images.every((img) => (img as HTMLImageElement).complete);
-      if (allSettled) {
-        clearInterval(poll);
-        setFading(true);
-        setTimeout(() => setOverlayVisible(false), 700);
-      }
-    }, 300);
-    // Hard fallback — never show overlay for more than 15 seconds
-    const fallback = setTimeout(() => {
-      clearInterval(poll);
-      setFading(true);
-      setTimeout(() => setOverlayVisible(false), 700);
-    }, 15000);
-    return () => {
-      clearInterval(poll);
-      clearTimeout(fallback);
     };
-  }, [overlayVisible]);
+    window.addEventListener("report-data-ready", onReady as EventListener);
+    return () => window.removeEventListener("report-data-ready", onReady as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!overlayVisible || fading) return;
+    if (!reportReady || !minDisplayElapsed) return;
+    setFading(true);
+    const t = setTimeout(() => setOverlayVisible(false), 200);
+    return () => clearTimeout(t);
+  }, [overlayVisible, fading, reportReady, minDisplayElapsed]);
 
   return (
     <>

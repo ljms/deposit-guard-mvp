@@ -92,6 +92,10 @@ type ReportPublicClientProps = {
   photosWithUrls: PhotoWithUrl[];
 };
 
+/** Same UA check pattern as mobile “Take Photo” (camera) flows elsewhere in the app. */
+const MOBILE_USER_AGENT_RE =
+  /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i;
+
 const BLUR_DATA_URL =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AJQAB/9k=";
 
@@ -131,6 +135,7 @@ export function ReportPublicClient({
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
   const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const [isMobileUserAgent, setIsMobileUserAgent] = useState(false);
   const [expandedRoomIds, setExpandedRoomIds] = useState<Set<string>>(() => {
     const firstWithPhotos = rooms.find((r) =>
       photosWithUrls.some((p) => String(p.room_id) === String(r.id))
@@ -156,6 +161,14 @@ export function ReportPublicClient({
     viewerRoomPhotos.length > 0 && viewerPhotoIndex !== null && viewerPhotoIndex >= 0 && viewerPhotoIndex < viewerRoomPhotos.length
       ? viewerRoomPhotos[viewerPhotoIndex]
       : null;
+
+  useEffect(() => {
+    window.dispatchEvent(new Event("report-data-ready"));
+  }, []);
+
+  useEffect(() => {
+    setIsMobileUserAgent(MOBILE_USER_AGENT_RE.test(navigator.userAgent));
+  }, []);
 
   const closeViewer = useCallback(() => {
     setViewerRoomId(null);
@@ -491,15 +504,20 @@ export function ReportPublicClient({
             }
           }}
         >
-          <button
-            type="button"
-            onClick={closeViewer}
-            aria-label="Close"
-            className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/20 text-white border border-white text-xl flex items-center justify-center z-[2] hover:bg-white/30"
-          >
-            <span className="text-white">✕</span>
-          </button>
-          {viewerRoomPhotos.length > 1 && viewerPhotoIndex !== null && viewerPhotoIndex > 0 && (
+          {!isMobileUserAgent && (
+            <button
+              type="button"
+              onClick={closeViewer}
+              aria-label="Close"
+              className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/20 text-white border border-white text-xl flex items-center justify-center z-[2] hover:bg-white/30"
+            >
+              <span className="text-white">✕</span>
+            </button>
+          )}
+          {!isMobileUserAgent &&
+            viewerRoomPhotos.length > 1 &&
+            viewerPhotoIndex !== null &&
+            viewerPhotoIndex > 0 && (
             <button
               type="button"
               onClick={(e) => {
@@ -514,7 +532,10 @@ export function ReportPublicClient({
               </svg>
             </button>
           )}
-          {viewerRoomPhotos.length > 1 && viewerPhotoIndex !== null && viewerPhotoIndex < viewerRoomPhotos.length - 1 && (
+          {!isMobileUserAgent &&
+            viewerRoomPhotos.length > 1 &&
+            viewerPhotoIndex !== null &&
+            viewerPhotoIndex < viewerRoomPhotos.length - 1 && (
             <button
               type="button"
               onClick={(e) => {

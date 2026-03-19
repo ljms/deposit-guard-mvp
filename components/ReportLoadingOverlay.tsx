@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 const MESSAGES = [
   "Loading your report...",
@@ -34,10 +35,11 @@ export function ReportLoadingOverlay({ fading = false, isPageReady }: ReportLoad
   }, [isPageReady]);
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-700 ${
-        fading ? "opacity-0" : "opacity-100"
-      }`}
+    <motion.div
+      initial={{ opacity: 1 }}
+      animate={{ opacity: fading ? 0 : 1 }}
+      transition={{ duration: 0.2, ease: "easeInOut" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     >
       <div className="flex flex-col items-center gap-4 text-white">
         <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -45,7 +47,7 @@ export function ReportLoadingOverlay({ fading = false, isPageReady }: ReportLoad
           {isPageReady ? MESSAGES[messageIndex] : "Loading your report..."}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
