@@ -41,13 +41,13 @@ type PhotoWithUrl = {
 };
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
-  "check-in": "Check-In Report",
+  "check-in": "Move-In Report",
   interim: "Interim Report",
-  "check-out": "Check-Out Report",
+  "check-out": "Move-Out Report",
 };
 
 function getReportTypeLabel(reportType: string | null | undefined): string {
-  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Check-In Report";
+  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Move-In Report";
 }
 
 function formatAddress(p: Property): string {

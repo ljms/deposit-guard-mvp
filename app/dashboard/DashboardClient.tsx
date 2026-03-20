@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { Home, Building2, HelpCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
@@ -39,13 +40,13 @@ type DashboardClientProps = {
 };
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
-  "check-in": "Check-In Report",
+  "check-in": "Move-In Report",
   interim: "Interim Report",
-  "check-out": "Check-Out Report",
+  "check-out": "Move-Out Report",
 };
 
 function getReportTypeLabel(reportType: string | null | undefined): string {
-  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Check-In Report";
+  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Move-In Report";
 }
 
 function getTimeBasedGreeting(): string {
@@ -759,10 +760,7 @@ export function DashboardClient({
             className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-[#008bff]"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
+            <Home size={24} />
             <span className="text-xs font-medium" style={fontStyle}>Home</span>
           </Link>
           <Link
@@ -770,10 +768,7 @@ export function DashboardClient({
             className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
+            <Building2 size={24} />
             <span className="text-xs font-medium" style={fontStyle}>Properties</span>
           </Link>
           <Link
@@ -787,18 +782,14 @@ export function DashboardClient({
             </svg>
             <span className="text-xs font-medium" style={fontStyle}>Settings</span>
           </Link>
-          <button
-            type="button"
-            className="active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
+          <Link
+            href="/help"
+            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]"
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
+            <HelpCircle size={24} />
             <span className="text-xs font-medium" style={fontStyle}>Help</span>
-          </button>
+          </Link>
         </div>
       </nav>
     </div>

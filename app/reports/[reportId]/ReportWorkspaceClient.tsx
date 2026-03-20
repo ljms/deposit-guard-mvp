@@ -48,13 +48,13 @@ type Photo = {
 };
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
-  "check-in": "Check-In Report",
+  "check-in": "Move-In Report",
   interim: "Interim Report",
-  "check-out": "Check-Out Report",
+  "check-out": "Move-Out Report",
 };
 
 function getReportTypeLabel(reportType: string | null | undefined): string {
-  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Check-In Report";
+  return REPORT_TYPE_LABELS[reportType ?? "check-in"] ?? "Move-In Report";
 }
 
 /** Sticky footer CTA when payment is still required (Stripe checkout). */
@@ -366,7 +366,7 @@ export function ReportWorkspaceClient({
 
   async function handleSaveCheckoutDate() {
     if (!checkoutDateInput.trim()) {
-      setCheckoutDateError("Please select a check-out date.");
+      setCheckoutDateError("Please select a move-out date.");
       return;
     }
     setCheckoutDateError(null);
@@ -709,7 +709,7 @@ export function ReportWorkspaceClient({
           <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full overflow-y-auto">
             <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-6">
               <p className="text-[#0F172A] font-medium mb-2" style={fontStyle}>
-                What is your check-out date?
+                What is your move-out date?
               </p>
               {checkoutDateError && (
                 <div className="mb-3 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
@@ -823,7 +823,7 @@ export function ReportWorkspaceClient({
                 <span className="text-lg shrink-0" aria-hidden>📅</span>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                    Check-Out Date
+                    Move-Out Date
                   </p>
                   <p className="text-[#0F172A] font-medium" style={fontStyle}>
                     {checkoutAtLocal}

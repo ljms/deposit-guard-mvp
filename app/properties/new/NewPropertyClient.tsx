@@ -226,9 +226,9 @@ export function NewPropertyClient() {
               <option value="" disabled>
                 Select report type
               </option>
-              <option value="check-in">Check-In Report</option>
+              <option value="check-in">Move-In Report</option>
               <option value="interim">Interim Report</option>
-              <option value="check-out">Check-Out Report</option>
+              <option value="check-out">Move-Out Report</option>
             </select>
           </div>
 

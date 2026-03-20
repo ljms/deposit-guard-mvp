@@ -5,8 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import PageWrapper from "@/components/PageWrapper";
+
+const MOBILE_USER_AGENT_RE =
+  /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i;
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -69,6 +73,11 @@ export function ReportRoomClient({
   const [error, setError] = useState<string | null>(null);
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+
+  useEffect(() => {
+    setIsMobileDevice(MOBILE_USER_AGENT_RE.test(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     if (viewerIndex === null) return;
@@ -98,12 +107,14 @@ export function ReportRoomClient({
 
   function openCamera() {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     setError(null);
     fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
     setPreviewFile(file);
@@ -281,7 +292,9 @@ export function ReportRoomClient({
           <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
             {photos.length === 0 ? (
               <p className="text-center text-gray-500 text-sm py-6" style={fontStyle}>
-                No photos yet. Tap &quot;📷 Take Photo&quot; below to capture.
+                {isMobileDevice
+                  ? "No photos yet. Tap \"📷 Take Photo\" below to capture."
+                  : "No photos yet."}
               </p>
             ) : (
               <div className="grid grid-cols-3 gap-3">
@@ -485,24 +498,38 @@ export function ReportRoomClient({
           <div className="flex flex-col gap-2">
             {step === "idle" && (
               <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  aria-hidden
-                />
-                <button
-                  type="button"
-                  onClick={openCamera}
-                  disabled={photoSaving}
-                  className="w-full py-3 rounded-xl border-2 border-[#1a1a86] text-[#1a1a86] bg-white font-medium text-base hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 tap-feedback-touch"
-                  style={{ ...fontStyle, WebkitTapHighlightColor: "transparent" }}
-                >
-                  📷 Take Photo
-                </button>
+                {isMobileDevice ? (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
+                      onClick={openCamera}
+                      disabled={photoSaving}
+                      className="w-full py-3 rounded-xl border-2 border-[#1a1a86] text-[#1a1a86] bg-white font-medium text-base hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 tap-feedback-touch"
+                      style={{ ...fontStyle, WebkitTapHighlightColor: "transparent" }}
+                    >
+                      📷 Take Photo
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    className="bg-amber-50 border-l-4 border-amber-400 rounded-md px-4 py-3 flex items-start gap-3"
+                    style={fontStyle}
+                  >
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden />
+                    <p className="text-sm text-amber-800">
+                      Photos can only be taken from a mobile device. Open this report on your phone to add photos.
+                    </p>
+                  </div>
+                )}
               </>
             )}
             <button

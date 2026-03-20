@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
+
+const MOBILE_USER_AGENT_RE =
+  /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i;
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -86,6 +90,11 @@ export function RoomDetailClient({
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+
+  useEffect(() => {
+    setIsMobileDevice(MOBILE_USER_AGENT_RE.test(navigator.userAgent));
+  }, []);
 
   const roomName = room.display_name || room.custom_name || room.room_type || 'Room';
   const addressLines = [
@@ -112,12 +121,14 @@ export function RoomDetailClient({
 
   function openCamera() {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     setError(null);
     fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setNote('');
@@ -311,28 +322,44 @@ export function RoomDetailClient({
 
         {!isLocked && (
           <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-              aria-hidden
-            />
-            <button
-              type="button"
-              onClick={openCamera}
-              disabled={loading}
-              style={{
-                ...PRIMARY_BUTTON_STYLE,
-                width: '100%',
-                padding: '1rem 1.25rem',
-                fontSize: '1rem',
-              }}
-            >
-              Take Photo
-            </button>
+            {isMobileDevice ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  disabled={loading}
+                  style={{
+                    ...PRIMARY_BUTTON_STYLE,
+                    width: '100%',
+                    padding: '1rem 1.25rem',
+                    fontSize: '1rem',
+                  }}
+                >
+                  Take Photo
+                </button>
+              </>
+            ) : (
+              <div style={CARD_STYLE}>
+                <div
+                  className="bg-amber-50 border-l-4 border-amber-400 rounded-md px-4 py-3 flex items-start gap-3"
+                  style={fontStyle}
+                >
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden />
+                  <p className="text-sm text-amber-800">
+                    Photos can only be taken from a mobile device. Open this report on your phone to add photos.
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -480,7 +507,9 @@ export function RoomDetailClient({
                 fontSize: '0.95rem',
               }}
             >
-              No photos yet. Tap &quot;Take Photo&quot; to capture the room condition.
+              {isMobileDevice
+                ? 'No photos yet. Tap "Take Photo" to capture the room condition.'
+                : 'No photos yet.'}
             </div>
           ) : (
             <div

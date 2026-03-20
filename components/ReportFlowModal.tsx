@@ -110,9 +110,9 @@ const fadeScaleTransition = {
 };
 
 const REPORT_TYPES_CREATE = [
-  { value: "check-in", label: "Check-In" },
+  { value: "check-in", label: "Move-In" },
   { value: "interim", label: "Interim" },
-  { value: "check-out", label: "Check-Out" },
+  { value: "check-out", label: "Move-Out" },
 ] as const;
 
 type ReportFlowModalProps = {

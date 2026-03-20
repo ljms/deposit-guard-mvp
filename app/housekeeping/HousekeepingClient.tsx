@@ -31,6 +31,8 @@ export function HousekeepingClient({
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeMessage, setPurgeMessage] = useState<string | null>(null);
+  const [warningsLoading, setWarningsLoading] = useState(false);
+  const [warningsMessage, setWarningsMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -91,6 +93,43 @@ export function HousekeepingClient({
       setPurgeMessage("Purge failed. Please try again.");
     } finally {
       setPurgeLoading(false);
+    }
+  }
+
+  async function handleSendStaleWarnings() {
+    setWarningsMessage(null);
+    setWarningsLoading(true);
+    try {
+      const res = await fetch("/api/housekeeping/stale-report-warnings", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setWarningsMessage(
+          typeof data.error === "string"
+            ? data.error
+            : typeof data.message === "string"
+              ? data.message
+              : "Warning run failed."
+        );
+        return;
+      }
+
+      const totalSent = typeof data.totalSent === "number" ? data.totalSent : 0;
+      const sent48h =
+        typeof data.warning48hSent === "number" ? data.warning48hSent : 0;
+      const sent24h =
+        typeof data.warning24hSent === "number" ? data.warning24hSent : 0;
+      setWarningsMessage(
+        totalSent === 0
+          ? "No stale warning emails to send."
+          : `Sent ${totalSent} warning email${totalSent === 1 ? "" : "s"} (48h: ${sent48h}, 24h: ${sent24h}).`
+      );
+    } catch {
+      setWarningsMessage("Warning run failed. Please try again.");
+    } finally {
+      setWarningsLoading(false);
     }
   }
 
@@ -318,23 +357,42 @@ export function HousekeepingClient({
             Remove in-progress, unpaid reports older than 7 days (photos, rooms, and report row). Properties are not
             affected.
           </p>
-          <button
-            type="button"
-            onClick={handlePurgeStaleReports}
-            disabled={purgeLoading}
-            style={{
-              fontSize: "0.9rem",
-              fontWeight: 600,
-              color: "#ffffff",
-              backgroundColor: purgeLoading ? "#94A3B8" : "#0F172A",
-              border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.6rem 1rem",
-              cursor: purgeLoading ? "not-allowed" : "pointer",
-            }}
-          >
-            {purgeLoading ? "Purging…" : "Purge Stale Reports"}
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={handlePurgeStaleReports}
+              disabled={purgeLoading}
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                color: "#ffffff",
+                backgroundColor: purgeLoading ? "#94A3B8" : "#0F172A",
+                border: "none",
+                borderRadius: "0.5rem",
+                padding: "0.6rem 1rem",
+                cursor: purgeLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              {purgeLoading ? "Purging…" : "Purge Stale Reports"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSendStaleWarnings}
+              disabled={warningsLoading}
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                color: "#ffffff",
+                backgroundColor: warningsLoading ? "#94A3B8" : "#008bff",
+                border: "none",
+                borderRadius: "0.5rem",
+                padding: "0.6rem 1rem",
+                cursor: warningsLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              {warningsLoading ? "Sending…" : "Send Stale Warnings"}
+            </button>
+          </div>
           {purgeMessage && (
             <p
               style={{
@@ -344,6 +402,17 @@ export function HousekeepingClient({
               }}
             >
               {purgeMessage}
+            </p>
+          )}
+          {warningsMessage && (
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#0F172A",
+                margin: "0.5rem 0 0 0",
+              }}
+            >
+              {warningsMessage}
             </p>
           )}
         </section>

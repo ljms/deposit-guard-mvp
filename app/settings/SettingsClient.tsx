@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Home, Building2, HelpCircle } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import PageWrapper from '@/components/PageWrapper';
 
@@ -271,6 +272,23 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
               </p>
             )}
           </div>
+
+          {/* Help */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-[#0F172A] mb-2" style={fontStyle}>
+              Help
+            </h2>
+            <p className="text-sm text-gray-500 mb-4" style={fontStyle}>
+              View FAQs or contact support.
+            </p>
+            <Link
+              href="/help"
+              className="w-full py-3 rounded-lg border border-gray-200 text-gray-700 font-medium text-base hover:bg-gray-50 transition-colors inline-flex items-center justify-center"
+              style={fontStyle}
+            >
+              Open Help
+            </Link>
+          </div>
         </main>
 
         {showDeleteAccountModal && (
@@ -338,17 +356,11 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
         <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
           <div className="flex justify-around max-w-[720px] mx-auto">
             <Link href="/dashboard" className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]" style={{ WebkitTapHighlightColor: 'transparent' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
+              <Home size={24} />
               <span className="text-xs font-medium" style={fontStyle}>Home</span>
             </Link>
             <Link href="/properties" className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]" style={{ WebkitTapHighlightColor: 'transparent' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
+              <Building2 size={24} />
               <span className="text-xs font-medium" style={fontStyle}>Properties</span>
             </Link>
             <Link href="/settings" className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-[#008bff]" style={{ WebkitTapHighlightColor: 'transparent' }}>
@@ -358,14 +370,10 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
               </svg>
               <span className="text-xs font-medium" style={fontStyle}>Settings</span>
             </Link>
-            <button type="button" className="active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default" style={{ WebkitTapHighlightColor: 'transparent' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
+            <Link href="/help" className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]" style={{ WebkitTapHighlightColor: 'transparent' }}>
+              <HelpCircle size={24} />
               <span className="text-xs font-medium" style={fontStyle}>Help</span>
-            </button>
+            </Link>
           </div>
         </nav>
       </div>
