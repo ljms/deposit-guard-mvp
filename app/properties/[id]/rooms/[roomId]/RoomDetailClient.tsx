@@ -349,10 +349,7 @@ export function RoomDetailClient({
               </>
             ) : (
               <div style={CARD_STYLE}>
-                <div
-                  className="bg-amber-50 border-l-4 border-amber-400 rounded-md px-4 py-3 flex items-start gap-3"
-                  style={fontStyle}
-                >
+                <div className="bg-amber-50 border-l-4 border-amber-400 rounded-md px-4 py-3 flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden />
                   <p className="text-sm text-amber-800">
                     Photos can only be taken from a mobile device. Open this report on your phone to add photos.
