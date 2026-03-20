@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -96,6 +96,26 @@ type ReportPublicClientProps = {
 const MOBILE_USER_AGENT_RE =
   /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i;
 
+function subscribeMobileUaNoop(_onStoreChange: () => void) {
+  return () => {};
+}
+
+function getMobileUaSnapshot(): boolean {
+  return typeof navigator !== "undefined" && MOBILE_USER_AGENT_RE.test(navigator.userAgent);
+}
+
+function getMobileUaServerSnapshot(): boolean {
+  return false;
+}
+
+function useIsMobileUserAgent(): boolean {
+  return useSyncExternalStore(
+    subscribeMobileUaNoop,
+    getMobileUaSnapshot,
+    getMobileUaServerSnapshot
+  );
+}
+
 const BLUR_DATA_URL =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AJQAB/9k=";
 
@@ -135,7 +155,7 @@ export function ReportPublicClient({
   const [viewerRoomId, setViewerRoomId] = useState<string | null>(null);
   const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
-  const [isMobileUserAgent, setIsMobileUserAgent] = useState(false);
+  const isMobileUserAgent = useIsMobileUserAgent();
   const [expandedRoomIds, setExpandedRoomIds] = useState<Set<string>>(() => {
     const firstWithPhotos = rooms.find((r) =>
       photosWithUrls.some((p) => String(p.room_id) === String(r.id))
@@ -163,11 +183,10 @@ export function ReportPublicClient({
       : null;
 
   useEffect(() => {
-    window.dispatchEvent(new Event("report-data-ready"));
-  }, []);
-
-  useEffect(() => {
-    setIsMobileUserAgent(MOBILE_USER_AGENT_RE.test(navigator.userAgent));
+    const t = window.setTimeout(() => {
+      window.dispatchEvent(new Event("report-data-ready"));
+    }, 0);
+    return () => window.clearTimeout(t);
   }, []);
 
   const closeViewer = useCallback(() => {
