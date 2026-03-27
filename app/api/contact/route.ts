@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendSlackNotification } from "@/lib/slack";
 
-const CORS_ORIGIN = "https://depositguard.com";
+const ALLOWED_ORIGINS = ["https://depositguard.com", "https://www.depositguard.com"];
 
-function corsHeaders(): HeadersInit {
+function corsHeaders(req: Request): HeadersInit {
+  const origin = req.headers.get("Origin");
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
+    return {};
+  }
   return {
-    "Access-Control-Allow-Origin": CORS_ORIGIN,
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
@@ -20,12 +24,12 @@ type ContactPayload = {
   source?: string;
 };
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+export async function OPTIONS(req: Request) {
+  return new NextResponse(null, { status: 200, headers: corsHeaders(req) });
 }
 
 export async function POST(req: Request) {
-  const headers = corsHeaders();
+  const headers = corsHeaders(req);
 
   try {
     let payload: ContactPayload;
