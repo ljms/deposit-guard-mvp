@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { sendSlackNotification } from "@/lib/slack";
 
 const ALLOWED_ORIGINS = ["https://depositguard.com", "https://www.depositguard.com"];
 
@@ -79,9 +78,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Something went wrong" }, { status: 500, headers });
     }
 
-    void sendSlackNotification(
-      `📬 Contact form (depositguard.com)\nName: ${name ?? ""}\nEmail: ${email ?? ""}\nSource: ${source ?? "—"}\nMessage:\n${message ?? ""}`
-    );
+    const slackContactUrl = process.env.SLACK_CONTACT_WEBHOOK_URL;
+    if (slackContactUrl) {
+      void fetch(slackContactUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `📬 Contact form (depositguard.com)\nName: ${name ?? ""}\nEmail: ${email ?? ""}\nSource: ${source ?? "—"}\nMessage:\n${message ?? ""}`,
+        }),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true }, { status: 200, headers });
   } catch (err) {
