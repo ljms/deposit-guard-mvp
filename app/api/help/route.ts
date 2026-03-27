@@ -10,6 +10,14 @@ type HelpPayload = {
   message?: string;
 };
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const {
@@ -63,6 +71,34 @@ export async function POST(req: Request) {
     });
     if (sendResult.error) {
       return NextResponse.json({ error: sendResult.error.message }, { status: 500 });
+    }
+
+    const adminSubject = `New help request: ${subject.replace(/\r?\n/g, " ")}`;
+    const adminText = [
+      `Name: ${name}`,
+      `Email: ${email}`,
+      `Subject: ${subject}`,
+      "",
+      "Message:",
+      message,
+    ].join("\n");
+    const adminHtml = `<div style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;">
+<p><strong>Name:</strong> ${escapeHtml(name)}</p>
+<p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
+<p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
+<p><strong>Message:</strong></p>
+<p style="white-space:pre-wrap;margin:0;">${escapeHtml(message)}</p>
+</div>`;
+
+    const adminSendResult = await resend.emails.send({
+      from: "Deposit Guard <noreply@depositguard.com>",
+      to: "luke@depositguard.com",
+      subject: adminSubject,
+      text: adminText,
+      html: adminHtml,
+    });
+    if (adminSendResult.error) {
+      return NextResponse.json({ error: adminSendResult.error.message }, { status: 500 });
     }
   } catch (err) {
     return NextResponse.json(

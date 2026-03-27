@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { TermsPrivacyModals } from "@/components/auth/TermsPrivacyModals";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 const cardClass =
@@ -18,6 +19,8 @@ export default function OnboardingPage() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -103,8 +106,29 @@ export default function OnboardingPage() {
                 className="text-[#101827] font-semibold text-xl leading-[1.8] mb-4"
                 style={fontStyle}
               >
-                Before you get started, please review and accept our Terms &amp;
-                Conditions and Privacy Policy.
+                Before you get started, please review and accept our{" "}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setTermsModalOpen(true);
+                  }}
+                  className="text-[#008bff] font-medium hover:underline"
+                >
+                  Terms &amp; Conditions
+                </button>
+                {" "}and{" "}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPrivacyModalOpen(true);
+                  }}
+                  className="text-[#008bff] font-medium hover:underline"
+                >
+                  Privacy Policy
+                </button>
+                .
               </h1>
               {error && (
                 <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
@@ -112,20 +136,45 @@ export default function OnboardingPage() {
                 </div>
               )}
               <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <label className="flex items-start gap-3 cursor-pointer">
+                <div className="flex items-start gap-3">
                   <input
+                    id="onboarding-terms"
                     type="checkbox"
                     checked={agreed}
                     onChange={(e) => setAgreed(e.target.checked)}
                     className="mt-0.5 w-4 h-4 rounded border-[#008BFF] text-[#008BFF] focus:ring-[#008BFF] shrink-0"
                   />
-                  <span
-                    className="text-[#414651] text-sm"
+                  <label
+                    htmlFor="onboarding-terms"
+                    className="text-[#414651] text-sm cursor-pointer"
                     style={fontStyle}
                   >
-                    I agree to the Terms &amp; Conditions and Privacy Policy
-                  </span>
-                </label>
+                    I agree to the{" "}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTermsModalOpen(true);
+                      }}
+                      className="text-[#008bff] font-medium hover:underline"
+                    >
+                      Terms &amp; Conditions
+                    </button>
+                    {" "}and{" "}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPrivacyModalOpen(true);
+                      }}
+                      className="text-[#008bff] font-medium hover:underline"
+                    >
+                      Privacy Policy
+                    </button>
+                  </label>
+                </div>
                 <button
                   type="submit"
                   disabled={!agreed || loading}
@@ -139,6 +188,12 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
+      <TermsPrivacyModals
+        termsModalOpen={termsModalOpen}
+        privacyModalOpen={privacyModalOpen}
+        onCloseTerms={() => setTermsModalOpen(false)}
+        onClosePrivacy={() => setPrivacyModalOpen(false)}
+      />
     </div>
   );
 }
