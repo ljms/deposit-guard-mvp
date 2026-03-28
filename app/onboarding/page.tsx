@@ -4,7 +4,11 @@ import { useEffect, useState, FormEvent } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { TermsPrivacyModals } from "@/components/auth/TermsPrivacyModals";
+import {
+  handleLegalExternalLinkClick,
+  LEGAL_PRIVACY_POLICY_URL,
+  LEGAL_TERMS_URL,
+} from "@/lib/legal-external-links";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 const cardClass =
@@ -19,9 +23,6 @@ export default function OnboardingPage() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [termsModalOpen, setTermsModalOpen] = useState(false);
-  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
-
   useEffect(() => {
     (async () => {
       const {
@@ -107,27 +108,21 @@ export default function OnboardingPage() {
                 style={fontStyle}
               >
                 Before you get started, please review and accept our{" "}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTermsModalOpen(true);
-                  }}
-                  className="text-[#008bff] font-medium hover:underline"
+                <a
+                  href={LEGAL_TERMS_URL}
+                  onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
+                  className="!text-[#008bff] font-medium hover:underline"
                 >
                   Terms &amp; Conditions
-                </button>
+                </a>
                 {" "}and{" "}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPrivacyModalOpen(true);
-                  }}
-                  className="text-[#008bff] font-medium hover:underline"
+                <a
+                  href={LEGAL_PRIVACY_POLICY_URL}
+                  onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
+                  className="!text-[#008bff] font-medium hover:underline"
                 >
                   Privacy Policy
-                </button>
+                </a>
                 .
               </h1>
               {error && (
@@ -150,29 +145,21 @@ export default function OnboardingPage() {
                     style={fontStyle}
                   >
                     I agree to the{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setTermsModalOpen(true);
-                      }}
-                      className="text-[#008bff] font-medium hover:underline"
+                    <a
+                      href={LEGAL_TERMS_URL}
+                      onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
+                      className="!text-[#008bff] font-medium hover:underline"
                     >
                       Terms &amp; Conditions
-                    </button>
+                    </a>
                     {" "}and{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setPrivacyModalOpen(true);
-                      }}
-                      className="text-[#008bff] font-medium hover:underline"
+                    <a
+                      href={LEGAL_PRIVACY_POLICY_URL}
+                      onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
+                      className="!text-[#008bff] font-medium hover:underline"
                     >
                       Privacy Policy
-                    </button>
+                    </a>
                   </label>
                 </div>
                 <button
@@ -188,12 +175,6 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
-      <TermsPrivacyModals
-        termsModalOpen={termsModalOpen}
-        privacyModalOpen={privacyModalOpen}
-        onCloseTerms={() => setTermsModalOpen(false)}
-        onClosePrivacy={() => setPrivacyModalOpen(false)}
-      />
     </div>
   );
 }
