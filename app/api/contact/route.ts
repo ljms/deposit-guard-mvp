@@ -80,13 +80,13 @@ export async function POST(req: Request) {
 
     const slackContactUrl = process.env.SLACK_CONTACT_WEBHOOK_URL;
     if (slackContactUrl) {
-      void fetch(slackContactUrl, {
+      await fetch(slackContactUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: `📬 Contact form (depositguard.com)\nName: ${name ?? ""}\nEmail: ${email ?? ""}\nSource: ${source ?? "—"}\nMessage:\n${message ?? ""}`,
         }),
-      }).catch(() => {});
+      });
     }
 
     return NextResponse.json({ success: true }, { status: 200, headers });
