@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
+import { LEGAL_PRIVACY_URL, LEGAL_TERMS_URL } from "@/lib/legal-external-links";
 
 type Property = {
   id: string | number;
@@ -488,9 +489,23 @@ export function ReportPublicClient({
       <footer className="mt-16 py-8 text-center text-sm text-gray-500">
         <p>© 2026 Deposit Guard. All rights reserved.</p>
         <p className="mt-1">
-          <a href="/terms" className="hover:text-gray-700">Terms</a>
+          <a
+            href={LEGAL_TERMS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-700"
+          >
+            Terms of Service
+          </a>
           <span className="mx-1">·</span>
-          <a href="/privacy" className="hover:text-gray-700">Privacy</a>
+          <a
+            href={LEGAL_PRIVACY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-700"
+          >
+            Privacy Policy
+          </a>
         </p>
       </footer>
       </div>

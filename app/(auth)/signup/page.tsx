@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toTitleCase } from "@/lib/format";
 import {
   handleLegalExternalLinkClick,
-  LEGAL_PRIVACY_POLICY_URL,
+  LEGAL_PRIVACY_URL,
   LEGAL_TERMS_URL,
 } from "@/lib/legal-external-links";
 
@@ -148,7 +148,7 @@ export default function SignupPage() {
           />
 
           <div className="flex min-h-0 flex-1 flex-col justify-center">
-            <div className="mx-auto w-full max-w-[28rem]">
+            <div className="mx-auto w-full max-w-[28rem] max-[640px]:mt-4">
               <AnimatePresence mode="wait">
                 {phase === "form" ? (
                   <motion.div
@@ -261,15 +261,15 @@ export default function SignupPage() {
                           I agree to the{" "}
                           <a
                             href={LEGAL_TERMS_URL}
-                            onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
+                            onClick={(e) => handleLegalExternalLinkClick(e)}
                             className="!text-white/[0.6] underline underline-offset-2"
                           >
-                            Terms &amp; Conditions
+                            Terms of Service
                           </a>{" "}
                           and{" "}
                           <a
-                            href={LEGAL_PRIVACY_POLICY_URL}
-                            onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
+                            href={LEGAL_PRIVACY_URL}
+                            onClick={(e) => handleLegalExternalLinkClick(e)}
                             className="!text-white/[0.6] underline underline-offset-2"
                           >
                             Privacy Policy
@@ -354,17 +354,17 @@ export default function SignupPage() {
           <footer className="mt-auto pt-8 text-center text-[0.75rem] text-white/[0.4] md:pt-10 md:text-left">
             <a
               href={LEGAL_TERMS_URL}
-              onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
+              onClick={(e) => handleLegalExternalLinkClick(e)}
               className="!text-white/[0.4] hover:text-white/60"
             >
-              Terms &amp; Conditions
+              Terms of Service
             </a>
             <span className="mx-2 text-white/30" aria-hidden>
               ·
             </span>
             <a
-              href={LEGAL_PRIVACY_POLICY_URL}
-              onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
+              href={LEGAL_PRIVACY_URL}
+              onClick={(e) => handleLegalExternalLinkClick(e)}
               className="!text-white/[0.4] hover:text-white/60"
             >
               Privacy Policy

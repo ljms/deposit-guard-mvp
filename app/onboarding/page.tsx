@@ -4,11 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  handleLegalExternalLinkClick,
-  LEGAL_PRIVACY_POLICY_URL,
-  LEGAL_TERMS_URL,
-} from "@/lib/legal-external-links";
+import { TermsPrivacyModals } from "@/components/auth/TermsPrivacyModals";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 const cardClass =
@@ -23,6 +19,8 @@ export default function OnboardingPage() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
   useEffect(() => {
     (async () => {
       const {
@@ -103,28 +101,30 @@ export default function OnboardingPage() {
                   className="object-contain"
                 />
               </div>
-              <h1
-                className="text-[#101827] font-semibold text-xl leading-[1.8] mb-4"
-                style={fontStyle}
-              >
-                Before you get started, please review and accept our{" "}
-                <a
-                  href={LEGAL_TERMS_URL}
-                  onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
-                  className="!text-[#008bff] font-medium hover:underline"
-                >
-                  Terms &amp; Conditions
-                </a>
-                {" "}and{" "}
-                <a
-                  href={LEGAL_PRIVACY_POLICY_URL}
-                  onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
-                  className="!text-[#008bff] font-medium hover:underline"
-                >
-                  Privacy Policy
-                </a>
-                .
-              </h1>
+              <div className="mb-5 space-y-2 text-left" style={fontStyle}>
+                <h1 className="text-[1.0625rem] font-semibold leading-snug text-[#101827]">
+                  Before you get started
+                </h1>
+                <p className="text-sm leading-relaxed text-[#6B7280]">
+                  Please review and accept our{" "}
+                  <button
+                    type="button"
+                    onClick={() => setTermsModalOpen(true)}
+                    className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                  >
+                    Terms of Service
+                  </button>
+                  {" "}and{" "}
+                  <button
+                    type="button"
+                    onClick={() => setPrivacyModalOpen(true)}
+                    className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                  >
+                    Privacy Policy
+                  </button>
+                  .
+                </p>
+              </div>
               {error && (
                 <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
                   {error}
@@ -145,21 +145,29 @@ export default function OnboardingPage() {
                     style={fontStyle}
                   >
                     I agree to the{" "}
-                    <a
-                      href={LEGAL_TERMS_URL}
-                      onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
-                      className="!text-[#008bff] font-medium hover:underline"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTermsModalOpen(true);
+                      }}
+                      className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
                     >
-                      Terms &amp; Conditions
-                    </a>
+                      Terms of Service
+                    </button>
                     {" "}and{" "}
-                    <a
-                      href={LEGAL_PRIVACY_POLICY_URL}
-                      onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
-                      className="!text-[#008bff] font-medium hover:underline"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPrivacyModalOpen(true);
+                      }}
+                      className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
                     >
                       Privacy Policy
-                    </a>
+                    </button>
                   </label>
                 </div>
                 <button
@@ -175,6 +183,13 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
+
+      <TermsPrivacyModals
+        termsModalOpen={termsModalOpen}
+        privacyModalOpen={privacyModalOpen}
+        onCloseTerms={() => setTermsModalOpen(false)}
+        onClosePrivacy={() => setPrivacyModalOpen(false)}
+      />
     </div>
   );
 }

@@ -12,6 +12,19 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
+  const { data: walkthroughProfile, error: walkthroughProfileError } = await supabase
+    .from("profiles")
+    .select("has_seen_onboarding")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (
+    !walkthroughProfileError &&
+    walkthroughProfile?.has_seen_onboarding !== true
+  ) {
+    redirect("/walkthrough");
+  }
+
   const { data: properties, error: propertiesError } = await supabase
     .from("properties")
     .select("id, address_line1, address_line2, city, postcode, created_at")

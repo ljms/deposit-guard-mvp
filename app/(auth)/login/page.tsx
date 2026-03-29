@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import {
   handleLegalExternalLinkClick,
-  LEGAL_PRIVACY_POLICY_URL,
+  LEGAL_PRIVACY_URL,
   LEGAL_TERMS_URL,
 } from "@/lib/legal-external-links";
 
@@ -404,17 +404,17 @@ export default function LoginPage() {
           <footer className="mt-auto pt-8 text-center text-[0.75rem] text-white/[0.4] md:pt-10 md:text-left">
             <a
               href={LEGAL_TERMS_URL}
-              onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_TERMS_URL)}
+              onClick={(e) => handleLegalExternalLinkClick(e)}
               className="!text-white/[0.4] hover:text-white/60"
             >
-              Terms &amp; Conditions
+              Terms of Service
             </a>
             <span className="mx-2 text-white/30" aria-hidden>
               ·
             </span>
             <a
-              href={LEGAL_PRIVACY_POLICY_URL}
-              onClick={(e) => handleLegalExternalLinkClick(e, LEGAL_PRIVACY_POLICY_URL)}
+              href={LEGAL_PRIVACY_URL}
+              onClick={(e) => handleLegalExternalLinkClick(e)}
               className="!text-white/[0.4] hover:text-white/60"
             >
               Privacy Policy
