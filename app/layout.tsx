@@ -32,7 +32,7 @@ export default function RootLayout({
         className={`${inter.variable} ${poppins.variable} antialiased min-h-screen bg-[#F8F8F8]`}
         suppressHydrationWarning={true}
       >
-        <div className="min-h-screen w-full lg:max-w-[1080px] lg:mx-auto bg-[#F8F8F8]">
+        <div className="min-h-screen w-full bg-[#F8F8F8]">
           {children}
         </div>
       </body>

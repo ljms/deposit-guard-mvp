@@ -11,6 +11,7 @@ import {
   LEGAL_PRIVACY_URL,
   LEGAL_TERMS_URL,
 } from "@/lib/legal-external-links";
+import { AuthDesktopMobileBanner } from "@/components/auth/AuthDesktopMobileBanner";
 
 const fontClass = "font-[family-name:var(--font-poppins),Poppins,sans-serif]";
 
@@ -422,12 +423,15 @@ export default function LoginPage() {
           </footer>
         </div>
 
-        {/* Right column — desktop only */}
+        {/* Right column — hidden below md; grab-your-phone message only at lg+ */}
         <div
-          className="hidden min-h-[100dvh] flex-1 bg-[#0d1117] md:block"
+          className="auth-right-panel hidden min-h-[100dvh] flex-1 bg-[#0d1117] md:block"
           data-slot="right-panel"
-          aria-hidden
-        />
+        >
+          <div className="hidden min-h-[100dvh] w-full items-center justify-center p-10 lg:flex">
+            <AuthDesktopMobileBanner />
+          </div>
+        </div>
       </div>
 
     </div>

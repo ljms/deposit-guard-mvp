@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { Home, Building2, HelpCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
+import { BottomNav } from "@/components/layout/BottomNav";
 
 type Report = {
   id: string | number;
@@ -337,9 +337,9 @@ export function DashboardClient({
 
   return (
     <PageWrapper>
-    <div className="min-h-screen bg-[#F8F8F8] flex flex-col pb-20">
+    <div className="flex min-h-screen flex-col bg-[#F8F8F8] pb-20 lg:bg-transparent lg:pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-[#E0F2FE] flex items-center justify-center">
@@ -379,7 +379,12 @@ export function DashboardClient({
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full">
+      <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-5 lg:mx-0 lg:max-w-none lg:px-0 lg:py-0">
+        <div className="mb-6 hidden lg:block">
+          <h1 className="text-lg font-semibold text-[#0F172A]" style={fontStyle}>
+            Dashboard
+          </h1>
+        </div>
         {/* Greeting */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -411,8 +416,8 @@ export function DashboardClient({
         >
           Overview
         </p>
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="rounded-xl p-4 bg-[#1a1a86] text-white">
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          <div className="rounded-xl bg-[#1a1a86] p-4 text-white">
             <p className="text-2xl font-bold" style={fontStyle}>
               {totalReports}
             </p>
@@ -420,7 +425,7 @@ export function DashboardClient({
               Total Reports
             </p>
           </div>
-          <div className="rounded-xl p-4 bg-[#0ba5de] text-white">
+          <div className="rounded-xl bg-[#0ba5de] p-4 text-white">
             <p className="text-2xl font-bold" style={fontStyle}>
               {completedReports}
             </p>
@@ -428,7 +433,7 @@ export function DashboardClient({
               Completed Reports
             </p>
           </div>
-          <div className="rounded-xl p-4 bg-[#00d9e4] text-white">
+          <div className="rounded-xl bg-[#00d9e4] p-4 text-white">
             <p className="text-2xl font-bold" style={fontStyle}>
               {incompleteReports}
             </p>
@@ -500,136 +505,129 @@ export function DashboardClient({
             sortedItems.map(({ property, report, isCompleted, photoCount, date, reportType }) => {
               const cardContent = (
                 <>
-                {/* Delete icon for both in-progress and completed */}
-                <div className="absolute top-3 right-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openDeleteReportModal(report);
-                    }}
-                    disabled={deletingId === report.id}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
-                    aria-label="Delete"
-                  >
-                    <svg
-                      className="text-red-600"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                      <line x1="10" y1="11" x2="10" y2="17" />
-                      <line x1="14" y1="11" x2="14" y2="17" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Status badge */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isCompleted ? "bg-green-500" : "bg-amber-400"
-                    }`}
-                  />
-                  <span
-                    className="text-sm text-gray-500"
-                    style={fontStyle}
-                  >
-                    {isCompleted ? "Completed" : "In Progress"}
-                  </span>
-                </div>
-
-                {/* Address */}
-                <p
-                  className="text-base font-semibold text-[#0F172A] mb-3 pr-8"
-                  style={fontStyle}
-                >
-                  {formatAddress(property)}
-                </p>
-
-                {/* Meta row */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mb-4">
-                  <span className="flex items-center gap-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
-                    {getReportTypeLabel(reportType)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21 15 16 10 5 21" />
-                    </svg>
-                    {photoCount} Photos
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    {formatDate(date)}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                {isCompleted ? (
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/r/${report.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 py-2 rounded-lg border border-gray-200 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      style={fontStyle}
-                    >
-                      View Report
-                    </Link>
+                  <div className="absolute right-3 top-3">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (pdfReady[String(report.id)]) handleDownload(report, property);
+                        openDeleteReportModal(report);
                       }}
-                      disabled={!pdfReady[String(report.id)] || downloadingReportId === String(report.id)}
-                      className={
-                        pdfReady[String(report.id)]
-                          ? "flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                          : "flex-1 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-500 bg-gray-400 opacity-50 cursor-not-allowed"
-                      }
-                      style={fontStyle}
+                      disabled={deletingId === report.id}
+                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                      aria-label="Delete"
                     >
-                      {!pdfReady[String(report.id)] ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2" />
-                          Preparing PDF…
-                        </>
-                      ) : downloadingReportId === String(report.id) ? (
-                        "Downloading…"
-                      ) : (
-                        "Download"
-                      )}
+                      <svg
+                        className="text-red-600"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                      </svg>
                     </button>
                   </div>
-                ) : (
-                  <span
-                    className="block w-full py-2.5 rounded-lg bg-[#008bff] text-white text-center font-medium text-sm hover:bg-[#0077e6]"
-                    style={{ ...fontStyle, color: "#ffffff" }}
-                  >
-                    Continue
-                  </span>
-                )}
-              </>
+
+                  <div className="w-full">
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isCompleted ? "bg-green-500" : "bg-amber-400"
+                        }`}
+                      />
+                      <span className="text-sm text-gray-500" style={fontStyle}>
+                        {isCompleted ? "Completed" : "In Progress"}
+                      </span>
+                    </div>
+
+                    <p className="mb-3 pr-8 text-base font-semibold text-[#0F172A]" style={fontStyle}>
+                      {formatAddress(property)}
+                    </p>
+
+                    <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        {getReportTypeLabel(reportType)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        {photoCount} Photos
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2" />
+                          <line x1="16" y1="2" x2="16" y2="6" />
+                          <line x1="8" y1="2" x2="8" y2="6" />
+                          <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        {formatDate(date)}
+                      </span>
+                    </div>
+
+                    {isCompleted ? (
+                      <div className="flex gap-2">
+                        <Link
+                          href={`/r/${report.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          style={fontStyle}
+                        >
+                          View Report
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (pdfReady[String(report.id)]) handleDownload(report, property);
+                          }}
+                          disabled={!pdfReady[String(report.id)] || downloadingReportId === String(report.id)}
+                          className={
+                            pdfReady[String(report.id)]
+                              ? "flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              : "flex-1 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-400 py-2 text-sm font-medium text-gray-500 opacity-50"
+                          }
+                          style={fontStyle}
+                        >
+                          {!pdfReady[String(report.id)] ? (
+                            <>
+                              <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Preparing PDF…
+                            </>
+                          ) : downloadingReportId === String(report.id) ? (
+                            "Downloading…"
+                          ) : (
+                            "Download"
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className="block w-full rounded-lg bg-[#008bff] py-2.5 text-center text-sm font-medium text-white hover:bg-[#0077e6]"
+                        style={{ ...fontStyle, color: "#ffffff" }}
+                      >
+                        Continue
+                      </span>
+                    )}
+                  </div>
+                </>
               );
               return isCompleted ? (
                 <div
@@ -646,7 +644,7 @@ export function DashboardClient({
                       router.push(`/r/${report.id}`);
                     }
                   }}
-                  className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block cursor-pointer"
+                  className="relative block cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:rounded-lg lg:border-[#e8e8eb] lg:shadow-none"
                 >
                   {cardContent}
                 </div>
@@ -654,7 +652,7 @@ export function DashboardClient({
                 <Link
                   key={report.id}
                   href={`/reports/${report?.id ?? property.id}`}
-                  className="rounded-xl bg-white border border-gray-200 shadow-sm p-4 relative block"
+                  className="relative block rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:rounded-lg lg:border-[#e8e8eb] lg:shadow-none"
                 >
                   {cardContent}
                 </Link>
@@ -752,46 +750,7 @@ export function DashboardClient({
         }}
       />
 
-      {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 w-full lg:max-w-[1080px] lg:left-1/2 lg:-translate-x-1/2 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
-        <div className="flex items-center justify-around max-w-[720px] mx-auto">
-          <Link
-            href="/dashboard"
-            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-[#008bff]"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <Home size={24} />
-            <span className="text-xs font-medium" style={fontStyle}>Home</span>
-          </Link>
-          <Link
-            href="/properties"
-            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <Building2 size={24} />
-            <span className="text-xs font-medium" style={fontStyle}>Properties</span>
-          </Link>
-          <Link
-            href="/settings"
-            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-            </svg>
-            <span className="text-xs font-medium" style={fontStyle}>Settings</span>
-          </Link>
-          <Link
-            href="/help"
-            className="tap-feedback-touch active:opacity-75 flex flex-col items-center gap-1 py-1 text-gray-400 hover:text-[#008bff]"
-            style={{ WebkitTapHighlightColor: "transparent" }}
-          >
-            <HelpCircle size={24} />
-            <span className="text-xs font-medium" style={fontStyle}>Help</span>
-          </Link>
-        </div>
-      </nav>
+      <BottomNav />
     </div>
     </PageWrapper>
   );
