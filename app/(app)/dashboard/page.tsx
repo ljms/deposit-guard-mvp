@@ -83,9 +83,14 @@ export default async function DashboardPage() {
     (user.user_metadata?.name as string) ||
     "there";
 
+  const rawAvatar = user.user_metadata?.avatar_url;
+  const userAvatarUrl =
+    typeof rawAvatar === "string" && rawAvatar.trim() !== "" ? rawAvatar.trim() : null;
+
   return (
     <DashboardClient
       userName={userName}
+      userAvatarUrl={userAvatarUrl}
       properties={properties ?? []}
       reports={reports ?? []}
       roomCounts={roomCounts}

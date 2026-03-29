@@ -6,15 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, Building2, HelpCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SettingsNavIcon } from "./BottomNav";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
-
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 type NavItem = { href: string; label: string; icon: "home" | "properties" | "settings" | "help" };
 
@@ -32,9 +26,10 @@ function isActive(pathname: string, href: string): boolean {
 
 type DesktopSidebarProps = {
   userDisplayName: string;
+  userAvatarUrl?: string | null;
 };
 
-export function DesktopSidebar({ userDisplayName }: DesktopSidebarProps) {
+export function DesktopSidebar({ userDisplayName, userAvatarUrl }: DesktopSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -85,12 +80,12 @@ export function DesktopSidebar({ userDisplayName }: DesktopSidebarProps) {
       </nav>
 
       <div className="mt-auto flex shrink-0 gap-2 px-5 pb-5 pt-3">
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a1a86] text-[11px] font-medium text-white"
-          aria-hidden
-        >
-          {initialsFromName(userDisplayName)}
-        </div>
+        <UserAvatar
+          name={userDisplayName}
+          avatarUrl={userAvatarUrl}
+          size="sm"
+          fallbackVariant="initials"
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="truncate text-xs font-medium leading-tight text-white">{userDisplayName || "Account"}</p>
           {/* Use span, not <button>: globals.css sets `button { color: #0f172a }` which matches the sidebar bg */}

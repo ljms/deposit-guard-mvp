@@ -9,6 +9,7 @@ import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { UserAvatar } from "@/components/UserAvatar";
 
 type Report = {
   id: string | number;
@@ -31,6 +32,7 @@ type Property = {
 
 type DashboardClientProps = {
   userName: string;
+  userAvatarUrl?: string | null;
   properties: Property[];
   reports: Report[];
   roomCounts: Record<string, number>;
@@ -78,6 +80,7 @@ function formatDate(iso: string | null | undefined): string {
 
 export function DashboardClient({
   userName,
+  userAvatarUrl,
   properties,
   reports,
   roomCounts,
@@ -387,9 +390,12 @@ export function DashboardClient({
         </div>
         {/* Greeting */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-            <span className="text-lg text-gray-500">👤</span>
-          </div>
+          <UserAvatar
+            name={userName}
+            avatarUrl={userAvatarUrl}
+            size="md"
+            fallbackVariant="emoji"
+          />
           <div>
             <h2
               className="text-lg font-semibold text-[#0F172A]"

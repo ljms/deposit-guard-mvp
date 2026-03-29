@@ -17,5 +17,13 @@ export default async function AuthenticatedGroupLayout({
     user?.email?.split("@")[0] ||
     "";
 
-  return <AppLayout userDisplayName={userDisplayName}>{children}</AppLayout>;
+  const rawAvatar = user?.user_metadata?.avatar_url;
+  const userAvatarUrl =
+    typeof rawAvatar === "string" && rawAvatar.trim() !== "" ? rawAvatar.trim() : null;
+
+  return (
+    <AppLayout userDisplayName={userDisplayName} userAvatarUrl={userAvatarUrl}>
+      {children}
+    </AppLayout>
+  );
 }
