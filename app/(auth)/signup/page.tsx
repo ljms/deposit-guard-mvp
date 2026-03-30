@@ -108,14 +108,22 @@ export default function SignupPage() {
             terms_accepted_at: new Date().toISOString(),
           })
           .eq("id", signUpData.user.id);
-        fetch("/api/emails/welcome", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: email.trim(),
-            userName: (name.trim() && toTitleCase(name.trim())) || undefined,
-          }),
-        }).catch(() => {});
+        try {
+          const siteBase = process.env.NEXT_PUBLIC_SITE_URL || "https://app.depositguard.com";
+          const welcomeRes = await fetch(`${siteBase}/api/emails/welcome`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: email.trim(),
+              userName: (name.trim() && toTitleCase(name.trim())) || undefined,
+            }),
+          });
+          if (!welcomeRes.ok) {
+            console.error("[signup] welcome email API failed:", welcomeRes.status, await welcomeRes.text());
+          }
+        } catch (welcomeErr) {
+          console.error("[signup] welcome email fetch failed:", welcomeErr);
+        }
       }
       fetch("/api/notify/signup", {
         method: "POST",

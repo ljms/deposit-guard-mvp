@@ -3,12 +3,12 @@ import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { sendSlackNotification } from "@/lib/slack";
 
-/** First OAuth session: created_at and last_sign_in_at are set together (within a short window). */
+/** First OAuth session: created_at and last_sign_in_at are set together (allow slack for OAuth latency / skew). */
 function isLikelyNewOAuthSignup(createdAt: string | undefined, lastSignInAt: string | null | undefined): boolean {
   if (!createdAt) return false;
   const created = new Date(createdAt).getTime();
   const last = lastSignInAt ? new Date(lastSignInAt).getTime() : created;
-  return Math.abs(last - created) < 60_000;
+  return Math.abs(last - created) < 300_000;
 }
 
 export async function GET(request: Request) {
@@ -76,12 +76,19 @@ export async function GET(request: Request) {
         (typeof meta.full_name === "string" && meta.full_name.trim()) ||
         (typeof meta.name === "string" && meta.name.trim()) ||
         undefined;
-      const welcomeUrl = new URL("/api/emails/welcome", request.url);
-      void fetch(welcomeUrl.toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, userName }),
-      }).catch(() => {});
+      const siteBase = process.env.NEXT_PUBLIC_SITE_URL || "https://app.depositguard.com";
+      try {
+        const welcomeRes = await fetch(`${siteBase}/api/emails/welcome`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, userName }),
+        });
+        if (!welcomeRes.ok) {
+          console.error("[auth/callback] welcome email API failed:", welcomeRes.status, await welcomeRes.text());
+        }
+      } catch (welcomeErr) {
+        console.error("[auth/callback] welcome email fetch failed:", welcomeErr);
+      }
     }
   }
 

@@ -101,29 +101,29 @@ export async function POST(req: Request) {
       "Contact form";
     const confirmationMessage = message ?? "";
 
-    void (async () => {
-      if (!trimmedContactEmail) return;
+    if (trimmedContactEmail) {
       try {
         const apiKey = process.env.RESEND_API_KEY;
-        if (!apiKey) return;
-        const resend = new Resend(apiKey);
-        const sendResult = await resend.emails.send({
-          from: "Deposit Guard <noreply@depositguard.com>",
-          to: trimmedContactEmail,
-          subject: "We've received your message",
-          react: createElement(ContactConfirmationEmail, {
-            name: confirmationName,
-            subject: confirmationSubject,
-            message: confirmationMessage,
-          }),
-        });
-        if (sendResult.error) {
-          console.error("[contact] Auto-reply Resend error:", sendResult.error.message);
+        if (apiKey) {
+          const resend = new Resend(apiKey);
+          const sendResult = await resend.emails.send({
+            from: "Deposit Guard <noreply@depositguard.com>",
+            to: trimmedContactEmail,
+            subject: "We've received your message",
+            react: createElement(ContactConfirmationEmail, {
+              name: confirmationName,
+              subject: confirmationSubject,
+              message: confirmationMessage,
+            }),
+          });
+          if (sendResult.error) {
+            console.error("[contact] Auto-reply Resend error:", sendResult.error.message);
+          }
         }
       } catch (err) {
         console.error("[contact] Auto-reply failed:", err);
       }
-    })();
+    }
 
     return NextResponse.json({ success: true }, { status: 200, headers });
   } catch (err) {
