@@ -108,6 +108,14 @@ export default function SignupPage() {
             terms_accepted_at: new Date().toISOString(),
           })
           .eq("id", signUpData.user.id);
+        fetch("/api/emails/welcome", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim(),
+            userName: (name.trim() && toTitleCase(name.trim())) || undefined,
+          }),
+        }).catch(() => {});
       }
       fetch("/api/notify/signup", {
         method: "POST",

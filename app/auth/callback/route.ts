@@ -70,6 +70,19 @@ export async function GET(request: Request) {
     void sendSlackNotification(
       isNewSignup ? `👤 New user registered: ${email}` : `🔐 User logged in: ${email}`
     );
+    if (isNewSignup) {
+      const meta = user.user_metadata ?? {};
+      const userName =
+        (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+        (typeof meta.name === "string" && meta.name.trim()) ||
+        undefined;
+      const welcomeUrl = new URL("/api/emails/welcome", request.url);
+      void fetch(welcomeUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, userName }),
+      }).catch(() => {});
+    }
   }
 
   const { data: profile } = await supabase

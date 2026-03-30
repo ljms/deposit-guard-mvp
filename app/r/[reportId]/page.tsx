@@ -12,7 +12,9 @@ export default async function PublicReportPage({ params }: PublicReportPageProps
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status, report_type, completed_at, checkout_date_local, movein_date_local, created_at")
+    .select(
+      "id, user_id, property_id, status, report_type, completed_at, checkout_date_local, movein_date_local, created_at"
+    )
     .eq("id", reportId)
     .single();
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
+import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import PageWrapper from "@/components/PageWrapper";
 
 type Property = {
@@ -314,7 +315,31 @@ export function ReportWorkspaceClient({
               true
             );
             if (result) {
-              await uploadAndStorePdf(result.blob, reportId, result.filename, supabase);
+              const pdfUrl = await uploadAndStorePdf(result.blob, reportId, result.filename, supabase);
+              try {
+                const {
+                  data: { user },
+                } = await supabase.auth.getUser();
+                if (user?.email) {
+                  const meta = user.user_metadata ?? {};
+                  const userName =
+                    (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+                    (typeof meta.name === "string" && meta.name.trim()) ||
+                    undefined;
+                  notifyReportCompleteEmailClient({
+                    reportId,
+                    pdfUrl,
+                    propertyAddress: formatAddress(property),
+                    roomCount: roomsData.length,
+                    photoCount: photoIds.length,
+                    completedAtIso: completedReport.completed_at,
+                    userEmail: user.email,
+                    userName,
+                  });
+                }
+              } catch (emailErr) {
+                console.error("[ReportWorkspaceClient] report-complete email notify:", emailErr);
+              }
             }
           }
         } catch {
@@ -450,7 +475,36 @@ export function ReportWorkspaceClient({
         a.download = filename;
         a.click();
         URL.revokeObjectURL(blobUrl);
-        await uploadAndStorePdf(blob, reportId, filename, supabase);
+        const pdfUrl = await uploadAndStorePdf(blob, reportId, filename, supabase);
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user?.email) {
+            const { count: photoCount } = await supabase
+              .from("photos")
+              .select("id", { count: "exact", head: true })
+              .eq("report_id", reportId)
+              .eq("user_id", userId);
+            const meta = user.user_metadata ?? {};
+            const userName =
+              (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+              (typeof meta.name === "string" && meta.name.trim()) ||
+              undefined;
+            notifyReportCompleteEmailClient({
+              reportId,
+              pdfUrl,
+              propertyAddress: formatAddress(property),
+              roomCount: roomsData?.length ?? 0,
+              photoCount: photoCount ?? 0,
+              completedAtIso: report.completed_at,
+              userEmail: user.email,
+              userName,
+            });
+          }
+        } catch (emailErr) {
+          console.error("[ReportWorkspaceClient] report-complete email notify:", emailErr);
+        }
       }
     } catch {
       setDetailsError("Failed to download report.");

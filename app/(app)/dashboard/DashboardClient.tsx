@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
+import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -254,7 +255,33 @@ export function DashboardClient({
         a.click();
         URL.revokeObjectURL(blobUrl);
 
-        await uploadAndStorePdf(blob, String(reportData.id), filename, supabase);
+        const pdfUrl = await uploadAndStorePdf(blob, String(reportData.id), filename, supabase);
+        try {
+          if (user.email) {
+            const { count: photoCount } = await supabase
+              .from("photos")
+              .select("id", { count: "exact", head: true })
+              .eq("report_id", reportData.id)
+              .eq("user_id", user.id);
+            const meta = user.user_metadata ?? {};
+            const displayName =
+              (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+              (typeof meta.name === "string" && meta.name.trim()) ||
+              undefined;
+            notifyReportCompleteEmailClient({
+              reportId: String(reportData.id),
+              pdfUrl,
+              propertyAddress: formatAddress(property),
+              roomCount: roomsData?.length ?? 0,
+              photoCount: photoCount ?? 0,
+              completedAtIso: reportData.completed_at,
+              userEmail: user.email,
+              userName: displayName,
+            });
+          }
+        } catch (emailErr) {
+          console.error("[DashboardClient] report-complete email notify:", emailErr);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong while downloading.");

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
+import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import { LEGAL_PRIVACY_URL, LEGAL_TERMS_URL } from "@/lib/legal-external-links";
 
 type Property = {
@@ -27,6 +28,7 @@ type Room = {
 
 type Report = {
   id: string;
+  user_id: string;
   created_at: string | null;
   completed_at: string | null;
   report_type: string | null;
@@ -284,7 +286,31 @@ export function ReportPublicClient({
         a.click();
         URL.revokeObjectURL(blobUrl);
 
-        await uploadAndStorePdf(blob, reportId, filename, supabase);
+        const pdfUrl = await uploadAndStorePdf(blob, reportId, filename, supabase);
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user?.email && user.id === report.user_id) {
+            const meta = user.user_metadata ?? {};
+            const userName =
+              (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+              (typeof meta.name === "string" && meta.name.trim()) ||
+              undefined;
+            notifyReportCompleteEmailClient({
+              reportId,
+              pdfUrl,
+              propertyAddress: formatAddress(property),
+              roomCount: rooms.length,
+              photoCount: photosWithUrls.length,
+              completedAtIso: report.completed_at,
+              userEmail: user.email,
+              userName,
+            });
+          }
+        } catch (emailErr) {
+          console.error("[ReportPublicClient] report-complete email notify:", emailErr);
+        }
       }
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : "Failed to generate PDF.");
