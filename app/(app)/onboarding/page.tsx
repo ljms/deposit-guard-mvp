@@ -8,9 +8,9 @@ import { TermsPrivacyModals } from "@/components/auth/TermsPrivacyModals";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 const cardClass =
-  "w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)]";
+  "w-full bg-white rounded-2xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.08)] md:max-w-xl md:p-10";
 const btnPrimaryClass =
-  "w-full py-3 rounded-lg bg-[#008BFF] !text-white font-medium text-base hover:bg-[#0077E6] disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-[0px_2px_5px_rgba(9,94,159,0.22)]";
+  "w-full py-3 md:py-3.5 rounded-lg bg-[#008BFF] !text-white font-medium text-base md:text-[1.05rem] hover:bg-[#0077E6] disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-[0px_2px_5px_rgba(9,94,159,0.22)]";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -86,100 +86,104 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-8 bg-[#F8F8F8]">
-      <div className="w-full max-w-md">
-        <div className="relative w-full max-w-[420px]">
-          <div className="flex flex-col">
-            <div className={cardClass}>
-              <div className="flex justify-center mb-7">
-                <Image
-                  src="/dg-logo-dark.png"
-                  alt="Deposit Guard"
-                  width={211}
-                  height={69}
-                  priority
-                  className="object-contain"
-                />
+    <div className="relative min-h-screen flex items-center justify-center bg-[#F8F8F8] py-8">
+      {/* Desktop: block interaction with sidebar (z-50) until terms are accepted */}
+      <div
+        className="pointer-events-auto fixed inset-0 z-[60] hidden bg-black/50 backdrop-blur-sm md:block"
+        aria-hidden
+      />
+
+      <div className="relative z-[70] flex w-full justify-center px-4 sm:px-6">
+        <div className="flex w-full max-w-[420px] flex-col md:max-w-xl">
+          <div className={cardClass}>
+            <div className="mb-7 flex justify-center">
+              <Image
+                src="/dg-logo-dark.png"
+                alt="Deposit Guard"
+                width={211}
+                height={69}
+                priority
+                className="h-[3.25rem] w-auto object-contain md:h-[4.25rem]"
+              />
+            </div>
+            <div className="mb-5 space-y-2 text-left" style={fontStyle}>
+              <h1 className="text-[1.0625rem] font-semibold leading-snug text-[#101827] md:text-2xl md:leading-tight">
+                Before you get started
+              </h1>
+              <p className="text-sm leading-relaxed text-[#6B7280] md:text-base md:leading-relaxed">
+                Please review and accept our{" "}
+                <button
+                  type="button"
+                  onClick={() => setTermsModalOpen(true)}
+                  className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                >
+                  Terms of Service
+                </button>
+                {" "}and{" "}
+                <button
+                  type="button"
+                  onClick={() => setPrivacyModalOpen(true)}
+                  className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </p>
+            </div>
+            {error && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {error}
               </div>
-              <div className="mb-5 space-y-2 text-left" style={fontStyle}>
-                <h1 className="text-[1.0625rem] font-semibold leading-snug text-[#101827]">
-                  Before you get started
-                </h1>
-                <p className="text-sm leading-relaxed text-[#6B7280]">
-                  Please review and accept our{" "}
+            )}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <div className="flex items-start gap-3">
+                <input
+                  id="onboarding-terms"
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#008BFF] text-[#008BFF] focus:ring-[#008BFF]"
+                />
+                <label
+                  htmlFor="onboarding-terms"
+                  className="cursor-pointer text-sm text-[#414651] md:text-base"
+                  style={fontStyle}
+                >
+                  I agree to the{" "}
                   <button
                     type="button"
-                    onClick={() => setTermsModalOpen(true)}
-                    className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setTermsModalOpen(true);
+                    }}
+                    className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
                   >
                     Terms of Service
                   </button>
                   {" "}and{" "}
                   <button
                     type="button"
-                    onClick={() => setPrivacyModalOpen(true)}
-                    className="inline cursor-pointer bg-transparent p-0 !text-[#008bff] font-medium hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPrivacyModalOpen(true);
+                    }}
+                    className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
                   >
                     Privacy Policy
                   </button>
-                  .
-                </p>
+                </label>
               </div>
-              {error && (
-                <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
-                  {error}
-                </div>
-              )}
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <div className="flex items-start gap-3">
-                  <input
-                    id="onboarding-terms"
-                    type="checkbox"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-[#008BFF] text-[#008BFF] focus:ring-[#008BFF] shrink-0"
-                  />
-                  <label
-                    htmlFor="onboarding-terms"
-                    className="text-[#414651] text-sm cursor-pointer"
-                    style={fontStyle}
-                  >
-                    I agree to the{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setTermsModalOpen(true);
-                      }}
-                      className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
-                    >
-                      Terms of Service
-                    </button>
-                    {" "}and{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setPrivacyModalOpen(true);
-                      }}
-                      className="inline cursor-pointer bg-transparent p-0 text-left !text-[#008bff] font-medium hover:underline"
-                    >
-                      Privacy Policy
-                    </button>
-                  </label>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!agreed || loading}
-                  className={btnPrimaryClass}
-                  style={{ ...fontStyle, color: "#ffffff" }}
-                >
-                  {loading ? "Saving…" : "Continue"}
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={!agreed || loading}
+                className={btnPrimaryClass}
+                style={{ ...fontStyle, color: "#ffffff" }}
+              >
+                {loading ? "Saving…" : "Continue"}
+              </button>
+            </form>
           </div>
         </div>
       </div>

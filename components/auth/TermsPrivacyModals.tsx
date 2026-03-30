@@ -23,7 +23,7 @@ export function TermsPrivacyModals({
     <>
       {termsModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
           onClick={onCloseTerms}
           role="dialog"
           aria-modal="true"
@@ -55,7 +55,7 @@ export function TermsPrivacyModals({
 
       {privacyModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
           onClick={onClosePrivacy}
           role="dialog"
           aria-modal="true"

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { createElement } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { sendSlackNotification } from "@/lib/slack";
 import { getResendClient } from "@/lib/resend";
+import ContactConfirmationEmail from "@/emails/ContactConfirmationEmail";
 
 type HelpPayload = {
   name?: string;
@@ -64,10 +66,7 @@ export async function POST(req: Request) {
       from: "Deposit Guard <noreply@depositguard.com>",
       to: email,
       subject: "We've received your message",
-      text:
-        "We've received your message and will get back to you shortly.\n\nThanks,\nDeposit Guard",
-      html:
-        "<div style=\"font-family:Arial,sans-serif;color:#111827;\"><p>We&apos;ve received your message and will get back to you shortly.</p><p>Thanks,<br/>Deposit Guard</p></div>",
+      react: createElement(ContactConfirmationEmail, { name, subject, message }),
     });
     if (sendResult.error) {
       return NextResponse.json({ error: sendResult.error.message }, { status: 500 });
