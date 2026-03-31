@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import PageWrapper from "@/components/PageWrapper";
+import { PricingModal } from "@/app/components/PricingModal";
 
 type Property = {
   id: string | number;
@@ -179,6 +180,8 @@ export function ReportWorkspaceClient({
   const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
   const [roomDeleting, setRoomDeleting] = useState(false);
   const [paymentRedirecting, setPaymentRedirecting] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [pendingCreditBalance, setPendingCreditBalance] = useState<number | null>(null);
   const isLocked = reportCompleted;
 
   const completedCount = rooms.filter((r) => r.is_complete === true).length;
@@ -240,7 +243,7 @@ export function ReportWorkspaceClient({
     }
   };
 
-  async function generateReport() {
+  async function generateReport(creditBalanceToConsume?: number | null) {
     if (!allRoomsComplete()) {
       const names = incompleteRoomNames();
       setDetailsError(
@@ -275,6 +278,26 @@ export function ReportWorkspaceClient({
         .eq("user_id", userId);
 
       if (updateError) throw new Error(updateError.message ?? "Failed to update report.");
+
+      if (typeof creditBalanceToConsume === "number" && creditBalanceToConsume > 0) {
+        const { error: creditUpdateError } = await supabase
+          .from("profiles")
+          .update({ report_credits: creditBalanceToConsume - 1 })
+          .eq("id", userId)
+          .gt("report_credits", 0);
+        if (creditUpdateError) {
+          throw new Error(creditUpdateError.message ?? "Failed to decrement report credit.");
+        }
+
+        const { error: paidUpdateError } = await supabase
+          .from("reports")
+          .update({ payment_status: "paid" })
+          .eq("id", reportId)
+          .eq("user_id", userId);
+        if (paidUpdateError) {
+          throw new Error(paidUpdateError.message ?? "Failed to mark report as paid.");
+        }
+      }
 
       fetch("/api/notify/report-completed", {
         method: "POST",
@@ -367,21 +390,24 @@ export function ReportWorkspaceClient({
     setDetailsError(null);
     setPaymentRedirecting(true);
     try {
-      const res = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.alreadyPaid) {
-        router.refresh();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("report_credits")
+        .eq("id", userId)
+        .single();
+
+      if (profileError || !profile) {
+        setDetailsError(profileError?.message ?? "Could not load profile credits.");
         return;
       }
-      if (!res.ok || !data.url) {
-        setDetailsError(data.error ?? "Could not start checkout. Please try again.");
-        return;
+
+      if ((profile.report_credits ?? 0) > 0) {
+        setPendingCreditBalance(profile.report_credits ?? 0);
+        setShowGenerateConfirmModal(true);
+      } else {
+        setPendingCreditBalance(null);
+        setShowPricingModal(true);
       }
-      window.location.href = data.url;
     } catch {
       setDetailsError("Something went wrong. Please try again.");
     } finally {
@@ -702,7 +728,12 @@ export function ReportWorkspaceClient({
       {showGenerateConfirmModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
-          onClick={() => !reportGenerating && setShowGenerateConfirmModal(false)}
+          onClick={() => {
+            if (!reportGenerating) {
+              setShowGenerateConfirmModal(false);
+              setPendingCreditBalance(null);
+            }
+          }}
         >
           <div
             className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto"
@@ -717,7 +748,10 @@ export function ReportWorkspaceClient({
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setShowGenerateConfirmModal(false)}
+                onClick={() => {
+                  setShowGenerateConfirmModal(false);
+                  setPendingCreditBalance(null);
+                }}
                 className="flex-[1] py-2.5 rounded-lg border border-gray-200 bg-white text-[#0F172A] font-medium text-sm hover:bg-gray-50"
                 style={fontStyle}
               >
@@ -727,7 +761,8 @@ export function ReportWorkspaceClient({
                 type="button"
                 onClick={() => {
                   setShowGenerateConfirmModal(false);
-                  generateReport();
+                  void generateReport(pendingCreditBalance);
+                  setPendingCreditBalance(null);
                 }}
                 disabled={reportGenerating}
                 className="flex-[2] py-2.5 rounded-lg bg-[#008bff] text-white font-medium text-sm hover:bg-[#0077e6] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1078,6 +1113,7 @@ export function ReportWorkspaceClient({
                     if (isPayFlow) {
                       handleFinishAndPay();
                     } else {
+                      setPendingCreditBalance(null);
                       setShowGenerateConfirmModal(true);
                     }
                   }}
@@ -1102,6 +1138,14 @@ export function ReportWorkspaceClient({
           )}
         </div>
       </div>
+      {showPricingModal && (
+        <PricingModal
+          reportId={reportId}
+          onClose={() => {
+            setShowPricingModal(false);
+          }}
+        />
+      )}
         </>
       )}
     </div>

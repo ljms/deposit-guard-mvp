@@ -39,16 +39,32 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const reportId = session.metadata?.reportId;
+    let reportUserId: string | null = null;
 
     if (reportId) {
       const admin = getAdminClient();
-      await admin
+      const { data: updatedReport } = await admin
         .from("reports")
         .update({
           payment_status: "paid",
           stripe_session_id: session.id,
         })
-        .eq("id", reportId);
+        .eq("id", reportId)
+        .select("user_id")
+        .maybeSingle();
+
+      reportUserId = updatedReport?.user_id ?? null;
+
+      if (session.metadata?.bundle === "true") {
+        const userId = session.metadata.userId || reportUserId;
+        if (userId) {
+          const { error } = await admin.rpc("increment_report_credits", {
+            user_id: userId,
+            amount: 1,
+          });
+          if (error) console.error("Failed to add report credit:", error);
+        }
+      }
     }
   }
 
