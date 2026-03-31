@@ -128,6 +128,9 @@ export function ReportWorkspaceClient({
   const supabase = createClient();
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [paymentsSettingsLoaded, setPaymentsSettingsLoaded] = useState(false);
+  const [paymentStatusLoaded, setPaymentStatusLoaded] = useState(false);
+  const [profileCreditsLoaded, setProfileCreditsLoaded] = useState(false);
+  const [effectivePaymentStatus, setEffectivePaymentStatus] = useState(paymentStatus);
   const [paymentSuccessMessage, setPaymentSuccessMessage] = useState(false);
   const paymentSuccessHandled = useRef(false);
   const generateReportRef = useRef<() => void>(() => {});
@@ -141,6 +144,39 @@ export function ReportWorkspaceClient({
       .catch(() => setPaymentsEnabled(false))
       .finally(() => setPaymentsSettingsLoaded(true));
   }, []);
+
+  useEffect(() => {
+    setEffectivePaymentStatus(paymentStatus);
+  }, [paymentStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [reportRes, profileRes] = await Promise.all([
+          supabase
+            .from("reports")
+            .select("payment_status")
+            .eq("id", reportId)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase.from("profiles").select("report_credits").eq("id", userId).maybeSingle(),
+        ]);
+        if (cancelled) return;
+        if (reportRes.data?.payment_status != null) {
+          setEffectivePaymentStatus(String(reportRes.data.payment_status));
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentStatusLoaded(true);
+          setProfileCreditsLoaded(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reportId, userId]);
 
   useEffect(() => {
     if (!paymentSuccessFromUrl || paymentSuccessHandled.current) return;
@@ -1096,15 +1132,20 @@ export function ReportWorkspaceClient({
             </button>
           ) : (
             (() => {
-              const needsPayment = paymentsSettingsLoaded && paymentsEnabled && paymentStatus !== "paid";
+              const ctaPrereqsLoaded =
+                paymentsSettingsLoaded && paymentStatusLoaded && profileCreditsLoaded;
+              const needsPayment =
+                ctaPrereqsLoaded && paymentsEnabled && effectivePaymentStatus !== "paid";
               const isPayFlow = needsPayment;
               const busy = reportGenerating || paymentRedirecting;
               const roomsIncomplete = !allRoomsComplete();
-              const looksDisabled = busy || roomsIncomplete;
+              const ctaLoading = !ctaPrereqsLoaded;
+              const looksDisabled = ctaLoading || busy || roomsIncomplete;
               return (
                 <button
                   type="button"
                   onClick={() => {
+                    if (!ctaPrereqsLoaded) return;
                     if (busy) return;
                     if (!allRoomsComplete()) {
                       setShowIncompleteRoomsModal(true);
@@ -1117,21 +1158,25 @@ export function ReportWorkspaceClient({
                       setShowGenerateConfirmModal(true);
                     }
                   }}
-                  disabled={busy}
+                  disabled={ctaLoading || busy}
                   className={`w-full py-3 rounded-lg font-medium text-base transition-colors pointer-events-auto ${
                     looksDisabled
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      ? ctaLoading
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-[#008bff] text-white hover:bg-[#0077e6]"
                   }`}
                   style={{ ...fontStyle, color: looksDisabled ? undefined : "#ffffff" }}
                 >
-                  {paymentRedirecting
-                    ? "Redirecting…"
-                    : reportGenerating
-                      ? "Generating…"
-                      : isPayFlow
-                        ? COMPLETE_REPORT_PAY_CTA_LABEL
-                        : "Generate Report"}
+                  {ctaLoading
+                    ? "Loading..."
+                    : paymentRedirecting
+                      ? "Redirecting…"
+                      : reportGenerating
+                        ? "Generating…"
+                        : isPayFlow
+                          ? COMPLETE_REPORT_PAY_CTA_LABEL
+                          : "Generate Report"}
                 </button>
               );
             })()

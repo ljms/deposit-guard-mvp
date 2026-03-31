@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { reportId?: string; priceId?: string };
+  let body: { reportId?: string; tier?: string };
   try {
     body = await req.json();
   } catch {
@@ -33,16 +33,15 @@ export async function POST(req: Request) {
   }
 
   const reportId = body.reportId;
-  const priceId = body.priceId;
+  const tier = body.tier;
   if (!reportId || typeof reportId !== "string") {
     return NextResponse.json({ error: "reportId required" }, { status: 400 });
   }
-  if (!priceId || typeof priceId !== "string") {
-    return NextResponse.json({ error: "priceId required" }, { status: 400 });
+  if (tier !== "single" && tier !== "double") {
+    return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
   }
-  if (priceId !== STRIPE_PRICES.single && priceId !== STRIPE_PRICES.double) {
-    return NextResponse.json({ error: "Invalid priceId" }, { status: 400 });
-  }
+
+  const priceId = tier === "double" ? STRIPE_PRICES.double : STRIPE_PRICES.single;
 
   const { data: report, error: reportError } = await supabase
     .from("reports")

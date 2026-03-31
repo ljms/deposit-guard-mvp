@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { STRIPE_PRICES } from "@/app/lib/stripe-prices";
 
 type PricingModalProps = {
   reportId: string;
@@ -22,7 +21,7 @@ export function PricingModal({ reportId, onClose }: PricingModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId,
-          priceId: STRIPE_PRICES[tier],
+          tier,
         }),
       });
 
