@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock } from "lucide-react";
+import { Clock, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
@@ -225,6 +225,8 @@ export function ReportWorkspaceClient({
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pendingCreditBalance, setPendingCreditBalance] = useState<number | null>(null);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
+  const [expiryInfoOpen, setExpiryInfoOpen] = useState(false);
+  const expiryInfoPopoverRef = useRef<HTMLSpanElement>(null);
   const isLocked = reportCompleted;
 
   const reportCreatedAtMs = reportCreatedAt ? new Date(reportCreatedAt).getTime() : Number.NaN;
@@ -248,6 +250,20 @@ export function ReportWorkspaceClient({
     }, 1000);
     return () => clearInterval(intervalId);
   }, [showExpiryTimer, isLiveCountdown]);
+
+  useEffect(() => {
+    if (!expiryInfoOpen) return;
+    const close = (e: MouseEvent | TouchEvent) => {
+      const el = expiryInfoPopoverRef.current;
+      if (el && !el.contains(e.target as Node)) setExpiryInfoOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [expiryInfoOpen]);
 
   const completedCount = rooms.filter((r) => r.is_complete === true).length;
   const effectiveCompletedCount = isLocked ? rooms.length : completedCount;
@@ -980,29 +996,60 @@ export function ReportWorkspaceClient({
                   }`}
                   aria-hidden
                 />
-                <p
-                  className={`font-medium ${
-                    isLiveCountdown || isExpired ? "text-red-600" : "text-amber-600"
-                  }`}
-                  style={fontStyle}
-                >
-                  {isExpired
-                    ? "This report is scheduled for deletion"
-                    : isLiveCountdown
-                      ? (() => {
-                          const totalSeconds = Math.max(0, Math.floor((remainingMs ?? 0) / 1000));
-                          const hours = Math.floor(totalSeconds / 3600);
-                          const minutes = Math.floor((totalSeconds % 3600) / 60);
-                          const seconds = totalSeconds % 60;
-                          return `Report expires in ${String(hours).padStart(2, "0")}:${String(
-                            minutes
-                          ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-                        })()
-                      : `Report expires in ${Math.max(
-                          0,
-                          Math.floor((remainingMs ?? 0) / (24 * 60 * 60 * 1000))
-                        )} days`}
-                </p>
+                <div className="min-w-0 flex items-start gap-1 flex-wrap">
+                  <p
+                    className={`font-medium inline ${
+                      isLiveCountdown || isExpired ? "text-red-600" : "text-amber-600"
+                    }`}
+                    style={fontStyle}
+                  >
+                    {isExpired
+                      ? "This report is scheduled for deletion"
+                      : isLiveCountdown
+                        ? (() => {
+                            const totalSeconds = Math.max(0, Math.floor((remainingMs ?? 0) / 1000));
+                            const hours = Math.floor(totalSeconds / 3600);
+                            const minutes = Math.floor((totalSeconds % 3600) / 60);
+                            const seconds = totalSeconds % 60;
+                            return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+                              2,
+                              "0"
+                            )}:${String(seconds).padStart(2, "0")} to complete this report`;
+                          })()
+                        : (() => {
+                            const d = Math.max(
+                              0,
+                              Math.floor((remainingMs ?? 0) / (24 * 60 * 60 * 1000))
+                            );
+                            return `${d} ${d === 1 ? "day" : "days"} to complete this report`;
+                          })()}
+                  </p>
+                  <span ref={expiryInfoPopoverRef} className="relative inline-flex shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpiryInfoOpen((o) => !o)}
+                      className={`tap-feedback-touch rounded-full p-0.5 -m-0.5 border-none bg-transparent cursor-pointer ${
+                        isLiveCountdown || isExpired ? "text-red-600" : "text-amber-600"
+                      }`}
+                      style={{ WebkitTapHighlightColor: "transparent" }}
+                      aria-expanded={expiryInfoOpen}
+                      aria-haspopup="true"
+                      aria-label="Why reports are deleted"
+                    >
+                      <Info className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    </button>
+                    {expiryInfoOpen ? (
+                      <div
+                        role="tooltip"
+                        className="absolute left-1/2 top-full z-20 mt-1.5 w-[min(calc(100vw-2rem),18rem)] -translate-x-1/2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-[#0F172A] shadow-md sm:left-0 sm:translate-x-0"
+                        style={fontStyle}
+                      >
+                        Incomplete reports are automatically deleted after 7 days. To stop this,
+                        make sure you complete and generate your report.
+                      </div>
+                    ) : null}
+                  </span>
+                </div>
               </div>
             )}
             {reportType === "check-out" && checkoutAtLocal && (
@@ -1169,8 +1216,8 @@ export function ReportWorkspaceClient({
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-30 w-full border-t border-gray-200 bg-white p-4 safe-area-pb lg:left-60 lg:px-10 lg:py-4">
-        <div className="mx-auto w-full max-w-[720px] lg:max-w-[960px]">
+      <div className="fixed bottom-0 left-0 right-0 z-30 w-full border-t border-gray-200 bg-white pt-4 pb-4 safe-area-pb lg:left-60 lg:py-4">
+        <div className="mx-auto w-full max-w-[720px] px-4 lg:max-w-[960px] lg:px-10">
           {isLocked ? (
             <button
               type="button"
