@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { toTitleCase, formatPostcode } from "@/lib/format";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 type ReportStep =
   | "select-property"
@@ -854,7 +855,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
         aria-hidden
       />
       {roomToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
               Delete Room
@@ -885,7 +886,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       )}
 
       {photoToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
               Delete Photo
@@ -916,7 +917,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       )}
 
       {addRoomModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto">
             <p className="text-[#0F172A] font-medium mb-3" style={fontStyle}>
               Name the room
@@ -986,7 +987,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
       )}
 
       {photoStep === "preview" && previewDataUrl && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden">
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto overflow-x-hidden ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-[min(420px,calc(100vw-2rem))] min-w-0 p-6 my-auto max-h-[90vh] overflow-y-auto">
             <p className="text-[#0F172A] font-medium text-sm mb-3" style={fontStyle}>
               Preview
@@ -1547,7 +1548,7 @@ export function ReportFlowModal({ isOpen, onClose, onComplete, onPropertyCreated
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

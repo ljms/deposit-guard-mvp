@@ -11,6 +11,7 @@ import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { UserAvatar } from "@/components/UserAvatar";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 type Report = {
   id: string | number;
@@ -93,7 +94,6 @@ export function DashboardClient({
   const searchParams = useSearchParams();
   const supabase = createClient();
   const [showReportModal, setShowReportModal] = useState(false);
-  const [sortByStatus, setSortByStatus] = useState(true); // true = status order, false = date
 
   useEffect(() => {
     if (searchParams.get("newReport") === "1") {
@@ -145,10 +145,6 @@ export function DashboardClient({
   const incompleteReports = totalReports - completedReports;
 
   const sortedItems = [...reportItems].sort((a, b) => {
-    if (sortByStatus) {
-      // In progress first, then completed
-      if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
-    }
     const dateA = a.date ? new Date(a.date).getTime() : 0;
     const dateB = b.date ? new Date(b.date).getTime() : 0;
     return dateB - dateA;
@@ -488,32 +484,13 @@ export function DashboardClient({
         </button>
 
         {/* Reports list */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3">
           <p
             className="text-sm font-semibold text-gray-600"
             style={fontStyle}
           >
             Reports
           </p>
-          <button
-            type="button"
-            onClick={() => setSortByStatus((s) => !s)}
-            className="flex items-center gap-1 text-sm text-[#008bff] font-medium"
-            style={fontStyle}
-          >
-            Report Status
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M7 15l5 5 5-5" />
-              <path d="M7 9l5-5 5 5" />
-            </svg>
-          </button>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -696,7 +673,7 @@ export function DashboardClient({
       </main>
 
       {reportToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
               Delete this report?
@@ -728,7 +705,7 @@ export function DashboardClient({
       )}
 
       {propertyToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-[#0F172A] mb-1" style={fontStyle}>
               Delete this property?

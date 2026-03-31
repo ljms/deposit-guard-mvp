@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 type PricingModalProps = {
   reportId: string;
@@ -40,7 +41,7 @@ export function PricingModal({ reportId, onClose }: PricingModalProps) {
   return (
     <AnimatePresence>
       <motion.div
-        className={`fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 ${fontClass}`}
+        className={`fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS} ${fontClass}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

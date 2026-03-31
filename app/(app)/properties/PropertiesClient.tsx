@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ReportFlowModal } from "@/components/ReportFlowModal";
 import PageWrapper from "@/components/PageWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -276,7 +277,7 @@ export function PropertiesClient({ properties, roomCounts, reportCounts }: Prope
       <AnimatePresence>
         {propertyToDelete && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import PageWrapper from '@/components/PageWrapper';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from '@/components/layout/appModalViewport';
 
 type SettingsClientProps = {
   initialEmail: string;
@@ -298,7 +299,7 @@ export function SettingsClient({ initialEmail, isAdmin }: SettingsClientProps) {
         </main>
 
         {showDeleteAccountModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
             <div className="w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-xl">
               <h2 className="text-lg font-bold text-[#0F172A] mb-3" style={fontStyle}>
                 Delete Account

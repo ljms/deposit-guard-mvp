@@ -2,6 +2,7 @@
 
 import { TermsOfServiceBody } from "@/components/auth/TermsOfServiceBody";
 import { PrivacyPolicyBody } from "@/components/auth/PrivacyPolicyBody";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 const fontStyle = { fontFamily: "var(--font-poppins), Poppins, sans-serif" };
 
@@ -23,7 +24,7 @@ export function TermsPrivacyModals({
     <>
       {termsModalOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
           onClick={onCloseTerms}
           role="dialog"
           aria-modal="true"
@@ -55,7 +56,7 @@ export function TermsPrivacyModals({
 
       {privacyModalOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
           onClick={onClosePrivacy}
           role="dialog"
           aria-modal="true"

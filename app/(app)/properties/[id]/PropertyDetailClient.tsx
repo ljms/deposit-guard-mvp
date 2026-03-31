@@ -9,6 +9,7 @@ import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import PageWrapper from "@/components/PageWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -776,7 +777,7 @@ export function PropertyDetailClient({
       <AnimatePresence>
         {showDeleteConfirmModal && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -839,7 +840,7 @@ export function PropertyDetailClient({
 
         {showCompletedDeleteStep1 && reportPendingDelete && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -905,7 +906,7 @@ export function PropertyDetailClient({
 
         {showCompletedDeleteStep2 && reportPendingDelete && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -972,7 +973,7 @@ export function PropertyDetailClient({
       <AnimatePresence>
         {showReportTypeModal && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1045,7 +1046,7 @@ export function PropertyDetailClient({
         {/* Tenancy start date modal (Move-In) */}
         {showMoveInDateModal && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1104,7 +1105,7 @@ export function PropertyDetailClient({
         {/* Check-out date modal */}
         {showCheckoutDateModal && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

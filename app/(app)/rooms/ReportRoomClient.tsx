@@ -5,8 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import PageWrapper from "@/components/PageWrapper";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
+
+const MOBILE_USER_AGENT_RE =
+  /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i;
 
 const fadeScaleTransition = {
   initial: { opacity: 0, scale: 0.98 },
@@ -69,6 +74,11 @@ export function ReportRoomClient({
   const [error, setError] = useState<string | null>(null);
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+
+  useEffect(() => {
+    setIsMobileDevice(MOBILE_USER_AGENT_RE.test(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     if (viewerIndex === null) return;
@@ -98,12 +108,14 @@ export function ReportRoomClient({
 
   function openCamera() {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     setError(null);
     fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (isLocked) return;
+    if (!isMobileDevice) return;
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
     setPreviewFile(file);
@@ -260,7 +272,7 @@ export function ReportRoomClient({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 max-w-[720px] mx-auto w-full overflow-y-auto flex flex-col gap-5">
+        <main className="flex-1 w-full max-w-[720px] mx-auto overflow-y-auto px-4 py-5 flex flex-col gap-5 md:max-w-none md:px-6 lg:px-0">
           {isLocked && (
             <div className="py-2.5 px-3 rounded-lg bg-[#eff6ff] text-[#008bff] text-sm border border-[#008bff] flex items-center gap-2" style={fontStyle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#008bff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
@@ -277,42 +289,89 @@ export function ReportRoomClient({
             </div>
           )}
 
-          {/* Photo grid - white card(s) */}
-          <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
-            {photos.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-6" style={fontStyle}>
-                No photos yet. Tap "📷 Take Photo" below to capture.
-              </p>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {photos.map((photo, index) => (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    onClick={() => setViewerIndex(index)}
-                    className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden aspect-square w-full tap-feedback-touch active:opacity-90"
-                    style={{ WebkitTapHighlightColor: "transparent" }}
-                  >
-                    {photoUrls[String(photo.id)] ? (
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={photoUrls[String(photo.id)]}
-                          alt=""
-                          fill
-                          sizes="(max-width: 720px) 33vw, 240px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs" style={fontStyle}>
-                        Loading…
-                      </div>
-                    )}
-                  </button>
-                ))}
+          <div className="md:grid md:grid-cols-5 md:gap-5">
+            {/* Photo grid - white card(s) */}
+            <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5 md:col-span-3">
+              {photos.length === 0 ? (
+                <p className="text-center text-gray-500 text-sm py-6" style={fontStyle}>
+                  {isMobileDevice
+                    ? "No photos yet. Tap \"📷 Take Photo\" below to capture."
+                    : "No photos yet."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {photos.map((photo, index) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setViewerIndex(index)}
+                      className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden aspect-square w-full tap-feedback-touch active:opacity-90"
+                      style={{ WebkitTapHighlightColor: "transparent" }}
+                    >
+                      {photoUrls[String(photo.id)] ? (
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={photoUrls[String(photo.id)]}
+                            alt=""
+                            fill
+                            sizes="(max-width: 720px) 33vw, (max-width: 1280px) 25vw, 280px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs" style={fontStyle}>
+                          Loading…
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-5 md:col-span-2 md:mt-0">
+              {/* Room Notes - white card */}
+              <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+                <label htmlFor="room-notes" className="block text-sm font-medium text-[#414651] mb-1.5" style={fontStyle}>
+                  Room Notes
+                </label>
+                <textarea
+                  id="room-notes"
+                  value={roomNotes}
+                  onChange={(e) => setRoomNotes(e.target.value.slice(0, 1000))}
+                  placeholder="Add a note about this room, e.g. overall condition, any damage observed..."
+                  maxLength={1000}
+                  readOnly={isLocked}
+                  className={`w-full min-h-[120px] py-2.5 px-3 rounded-lg border text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 resize-y ${isLocked ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"}`}
+                  style={fontStyle}
+                />
+                <p className="text-xs text-gray-500 mt-1" style={fontStyle}>
+                  {1000 - roomNotes.length} characters remaining
+                </p>
               </div>
-            )}
+
+              {/* Room Complete checkbox - white card */}
+              <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
+                <label className={`flex items-center gap-3 ${isLocked ? "cursor-default" : "cursor-pointer"}`}>
+                  <input
+                    type="checkbox"
+                    checked={roomComplete}
+                    onChange={(e) => handleRoomCompleteChange(e.target.checked)}
+                    disabled={isLocked}
+                    className="w-4 h-4 rounded border-gray-300 text-[#008bff] focus:ring-[#008bff] focus:ring-offset-0"
+                  />
+                  <span className="text-[#0F172A] font-medium text-sm" style={fontStyle}>
+                    Mark room as complete
+                  </span>
+                </label>
+                {completeError && (
+                  <p className="mt-2 text-sm text-red-600" style={fontStyle}>
+                    {completeError}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
         {/* Full-size photo viewer modal */}
@@ -321,7 +380,7 @@ export function ReportRoomClient({
             role="dialog"
             aria-modal="true"
             aria-label="Photo viewer"
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
+            className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             onClick={() => setViewerIndex(null)}
           >
             <button
@@ -378,47 +437,6 @@ export function ReportRoomClient({
           </div>
         )}
 
-        {/* Room Notes - white card */}
-        <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
-          <label htmlFor="room-notes" className="block text-sm font-medium text-[#414651] mb-1.5" style={fontStyle}>
-            Room Notes
-          </label>
-          <textarea
-            id="room-notes"
-            value={roomNotes}
-            onChange={(e) => setRoomNotes(e.target.value.slice(0, 1000))}
-            placeholder="Add a note about this room, e.g. overall condition, any damage observed..."
-            maxLength={1000}
-            readOnly={isLocked}
-            className={`w-full min-h-[120px] py-2.5 px-3 rounded-lg border text-[#0F172A] text-base outline-none focus:border-[#008bff] focus:ring-2 focus:ring-[#008bff]/20 resize-y ${isLocked ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"}`}
-            style={fontStyle}
-          />
-          <p className="text-xs text-gray-500 mt-1" style={fontStyle}>
-            {1000 - roomNotes.length} characters remaining
-          </p>
-        </div>
-
-        {/* Room Complete checkbox - white card */}
-        <div className="rounded-xl bg-white border border-gray-200 shadow-sm p-5">
-          <label className={`flex items-center gap-3 ${isLocked ? "cursor-default" : "cursor-pointer"}`}>
-            <input
-              type="checkbox"
-              checked={roomComplete}
-              onChange={(e) => handleRoomCompleteChange(e.target.checked)}
-              disabled={isLocked}
-              className="w-4 h-4 rounded border-gray-300 text-[#008bff] focus:ring-[#008bff] focus:ring-offset-0"
-            />
-            <span className="text-[#0F172A] font-medium text-sm" style={fontStyle}>
-              Mark room as complete
-            </span>
-          </label>
-          {completeError && (
-            <p className="mt-2 text-sm text-red-600" style={fontStyle}>
-              {completeError}
-            </p>
-          )}
-        </div>
-
         {/* Photo capture modal - shown when a photo has been captured but not yet saved */}
         <AnimatePresence>
           {step === "preview" && previewDataUrl && !isLocked && (
@@ -428,7 +446,7 @@ export function ReportRoomClient({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+              className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
               onClick={(e) => e.target === e.currentTarget && retake()}
             >
               <motion.div
@@ -485,24 +503,38 @@ export function ReportRoomClient({
           <div className="flex flex-col gap-2">
             {step === "idle" && (
               <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  aria-hidden
-                />
-                <button
-                  type="button"
-                  onClick={openCamera}
-                  disabled={photoSaving}
-                  className="w-full py-3 rounded-xl border-2 border-[#1a1a86] text-[#1a1a86] bg-white font-medium text-base hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 tap-feedback-touch"
-                  style={{ ...fontStyle, WebkitTapHighlightColor: "transparent" }}
-                >
-                  📷 Take Photo
-                </button>
+                {isMobileDevice ? (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
+                      onClick={openCamera}
+                      disabled={photoSaving}
+                      className="w-full py-3 rounded-xl border-2 border-[#1a1a86] text-[#1a1a86] bg-white font-medium text-base hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 tap-feedback-touch"
+                      style={{ ...fontStyle, WebkitTapHighlightColor: "transparent" }}
+                    >
+                      📷 Take Photo
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    className="bg-amber-50 border-l-4 border-amber-400 rounded-md px-4 py-3 flex items-start gap-3"
+                    style={fontStyle}
+                  >
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden />
+                    <p className="text-sm text-amber-800">
+                      Photos can only be taken from a mobile device. Open this report on your phone to add photos.
+                    </p>
+                  </div>
+                )}
               </>
             )}
             <button

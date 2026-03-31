@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { generateReportPdf, uploadAndStorePdf } from "@/lib/generateReportPdf";
 import { notifyReportCompleteEmailClient } from "@/lib/notifyReportCompleteEmail";
 import PageWrapper from "@/components/PageWrapper";
+import { APP_MODAL_VIEWPORT_OFFSET_CLASS } from "@/components/layout/appModalViewport";
 import { PricingModal } from "@/app/components/PricingModal";
 
 type Property = {
@@ -72,6 +74,8 @@ type ReportWorkspaceClientProps = {
   checkoutAtLocal?: string | null;
   moveinDateLocal?: string | null;
   paymentStatus?: string;
+  reportStatus?: string | null;
+  reportCreatedAt?: string | null;
   rooms: Room[];
   photosData: Photo[];
   paymentSuccessFromUrl?: boolean;
@@ -120,6 +124,8 @@ export function ReportWorkspaceClient({
   checkoutAtLocal,
   moveinDateLocal,
   paymentStatus = "unpaid",
+  reportStatus,
+  reportCreatedAt,
   rooms: initialRooms,
   photosData,
   paymentSuccessFromUrl = false,
@@ -218,7 +224,30 @@ export function ReportWorkspaceClient({
   const [paymentRedirecting, setPaymentRedirecting] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pendingCreditBalance, setPendingCreditBalance] = useState<number | null>(null);
+  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const isLocked = reportCompleted;
+
+  const reportCreatedAtMs = reportCreatedAt ? new Date(reportCreatedAt).getTime() : Number.NaN;
+  const reportExpiryMs = Number.isFinite(reportCreatedAtMs)
+    ? reportCreatedAtMs + 7 * 24 * 60 * 60 * 1000
+    : null;
+  const showExpiryTimer =
+    reportStatus === "in_progress" && effectivePaymentStatus !== "paid" && reportExpiryMs !== null;
+  const remainingMs = showExpiryTimer && reportExpiryMs !== null ? reportExpiryMs - countdownNowMs : null;
+  const isExpired = remainingMs !== null && remainingMs <= 0;
+  const isLiveCountdown = remainingMs !== null && remainingMs > 0 && remainingMs <= 48 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    setCountdownNowMs(Date.now());
+  }, [reportCreatedAt, reportStatus, effectivePaymentStatus]);
+
+  useEffect(() => {
+    if (!showExpiryTimer || !isLiveCountdown) return;
+    const intervalId = setInterval(() => {
+      setCountdownNowMs(Date.now());
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [showExpiryTimer, isLiveCountdown]);
 
   const completedCount = rooms.filter((r) => r.is_complete === true).length;
   const effectiveCompletedCount = isLocked ? rooms.length : completedCount;
@@ -654,7 +683,7 @@ export function ReportWorkspaceClient({
     <PageWrapper>
     <div className="flex min-h-screen flex-col bg-[#F8F8F8] pb-24 lg:bg-transparent lg:pb-24">
       {addRoomModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}>
           <div className="bg-white rounded-2xl shadow-xl max-w-[400px] w-full p-6 my-auto">
             <p className="text-[#0F172A] font-medium mb-3" style={fontStyle}>
               Name the room
@@ -725,7 +754,7 @@ export function ReportWorkspaceClient({
 
       {showIncompleteRoomsModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+          className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
           onClick={() => setShowIncompleteRoomsModal(false)}
         >
           <div
@@ -763,7 +792,7 @@ export function ReportWorkspaceClient({
 
       {showGenerateConfirmModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+          className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
           onClick={() => {
             if (!reportGenerating) {
               setShowGenerateConfirmModal(false);
@@ -926,17 +955,6 @@ export function ReportWorkspaceClient({
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
-              <span className="text-lg shrink-0" aria-hidden>🏠</span>
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5" style={fontStyle}>
-                  Property Type
-                </p>
-                <p className="text-[#0F172A] font-medium" style={fontStyle}>
-                  {property.property_type ?? "Property"}
-                </p>
-              </div>
-            </div>
             {reportType === "check-in" && (
               <>
                 {moveinDateLocal && (
@@ -953,6 +971,39 @@ export function ReportWorkspaceClient({
                   </div>
                 )}
               </>
+            )}
+            {showExpiryTimer && (
+              <div className="flex gap-3">
+                <Clock
+                  className={`mt-0.5 h-4 w-4 shrink-0 ${
+                    isLiveCountdown || isExpired ? "text-red-600" : "text-amber-600"
+                  }`}
+                  aria-hidden
+                />
+                <p
+                  className={`font-medium ${
+                    isLiveCountdown || isExpired ? "text-red-600" : "text-amber-600"
+                  }`}
+                  style={fontStyle}
+                >
+                  {isExpired
+                    ? "This report is scheduled for deletion"
+                    : isLiveCountdown
+                      ? (() => {
+                          const totalSeconds = Math.max(0, Math.floor((remainingMs ?? 0) / 1000));
+                          const hours = Math.floor(totalSeconds / 3600);
+                          const minutes = Math.floor((totalSeconds % 3600) / 60);
+                          const seconds = totalSeconds % 60;
+                          return `Report expires in ${String(hours).padStart(2, "0")}:${String(
+                            minutes
+                          ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                        })()
+                      : `Report expires in ${Math.max(
+                          0,
+                          Math.floor((remainingMs ?? 0) / (24 * 60 * 60 * 1000))
+                        )} days`}
+                </p>
+              </div>
             )}
             {reportType === "check-out" && checkoutAtLocal && (
               <div className="flex gap-3">
@@ -1068,7 +1119,7 @@ export function ReportWorkspaceClient({
 
         {roomToDelete !== null && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto ${APP_MODAL_VIEWPORT_OFFSET_CLASS}`}
             onClick={() => !roomDeleting && setRoomToDelete(null)}
           >
             <div
@@ -1119,7 +1170,7 @@ export function ReportWorkspaceClient({
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-30 w-full border-t border-gray-200 bg-white p-4 safe-area-pb lg:left-60 lg:px-10 lg:py-4">
-        <div className="mx-auto w-full max-w-[720px] lg:max-w-none">
+        <div className="mx-auto w-full max-w-[720px] lg:max-w-[960px]">
           {isLocked ? (
             <button
               type="button"

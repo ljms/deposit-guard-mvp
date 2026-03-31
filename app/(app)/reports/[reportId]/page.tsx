@@ -25,7 +25,7 @@ export default async function ReportPage({ params, searchParams }: ReportPagePro
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, property_id, status, storage_path, report_type, completed_at, checkout_date_local, movein_date_local, payment_status")
+    .select("id, property_id, status, storage_path, report_type, completed_at, checkout_date_local, movein_date_local, payment_status, created_at")
     .eq("id", reportId)
     .eq("user_id", user.id)
     .single();
@@ -74,6 +74,8 @@ export default async function ReportPage({ params, searchParams }: ReportPagePro
       checkoutAtLocal={report?.checkout_date_local ?? null}
       moveinDateLocal={report?.movein_date_local ?? null}
       paymentStatus={report?.payment_status ?? "unpaid"}
+      reportStatus={report?.status ?? null}
+      reportCreatedAt={report?.created_at ?? null}
       rooms={rooms ?? []}
       photosData={photosData ?? []}
       paymentSuccessFromUrl={resolvedSearchParams?.payment === "success" || (Array.isArray(resolvedSearchParams?.payment) && resolvedSearchParams.payment.includes("success"))}
