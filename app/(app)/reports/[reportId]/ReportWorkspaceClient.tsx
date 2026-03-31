@@ -1216,8 +1216,8 @@ export function ReportWorkspaceClient({
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-30 w-full border-t border-gray-200 bg-white pt-4 pb-4 safe-area-pb lg:left-60 lg:py-4">
-        <div className="mx-auto w-full max-w-[720px] px-4 lg:max-w-[960px] lg:px-10">
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white pt-4 pb-4 safe-area-pb lg:left-60 lg:py-4">
+        <div className="mx-auto box-border w-[min(100%,720px)] px-4 lg:w-[min(100%,960px)] lg:px-10">
           {isLocked ? (
             <button
               type="button"

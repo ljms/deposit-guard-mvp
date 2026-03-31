@@ -55,7 +55,7 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
             <Img
               src="https://app.depositguard.com/dg-logo-dark.png"
               alt="Deposit Guard"
-              height={28}
+              height={56}
               style={{ margin: "0 auto" }}
             />
           </Section>
@@ -87,10 +87,10 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
                 lineHeight: 1.5,
               }}
             >
-              Deposit Guard Ltd · Compatible with TDS, mydeposits, and DPS
+              Deposit Guard Ltd · 55 St Paul's Street, Leeds, LS1 2TE
             </Text>
             <Link
-              href="https://depositguard.com/privacy-policy"
+              href="https://depositguard.com/privacy"
               style={{ color: "#008bff", fontSize: 11, textDecoration: "none" }}
             >
               Privacy policy
