@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { toTitleCase } from "@/lib/format";
@@ -47,6 +47,8 @@ function GoogleIcon() {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const emailPrefilledFromQuery = useRef(false);
   const supabase = createClient();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [phase, setPhase] = useState<"form" | "verify" | "welcome">("form");
@@ -71,6 +73,16 @@ export default function SignupPage() {
       setCheckingAuth(false);
     })();
   }, [router, supabase.auth]);
+
+  useEffect(() => {
+    if (emailPrefilledFromQuery.current) return;
+    const raw = searchParams.get("email");
+    if (!raw) return;
+    const next = raw.trim();
+    if (!next) return;
+    setEmail(next);
+    emailPrefilledFromQuery.current = true;
+  }, [searchParams]);
 
   const handleGoogleSignIn = () => {
     supabase.auth.signInWithOAuth({
