@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -45,7 +45,7 @@ function GoogleIcon() {
   );
 }
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailPrefilledFromQuery = useRef(false);
@@ -412,5 +412,13 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupPageContent />
+    </Suspense>
   );
 }
