@@ -48,7 +48,6 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [view, setView] = useState<"login" | "forgot">("login");
   const [flowStep, setFlowStep] = useState<1 | 2>(1);
 
   const [email, setEmail] = useState("");
@@ -57,10 +56,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checkEmailLoading, setCheckEmailLoading] = useState(false);
 
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetError, setResetError] = useState<string | null>(null);
-  const [resetSuccess, setResetSuccess] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [passwordResetLinkSent, setPasswordResetLinkSent] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -149,38 +146,37 @@ export default function LoginPage() {
     }
   };
 
-  const handleResetPassword = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setResetError(null);
-    setResetLoading(true);
+  const handleForgotPasswordClick = async () => {
+    setError(null);
+    setPasswordResetLinkSent(false);
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setForgotPasswordLoading(true);
     try {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: "https://testing.depositguard.com",
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${origin}/auth/callback`,
       });
       if (err) {
-        setResetError(err.message || "Something went wrong. Please try again.");
-        setResetLoading(false);
+        setError(err.message || "Something went wrong. Please try again.");
         return;
       }
-      setResetSuccess(true);
+      setPasswordResetLinkSent(true);
     } catch {
-      setResetError("Something went wrong. Please try again.");
+      setError("Something went wrong. Please try again.");
     } finally {
-      setResetLoading(false);
+      setForgotPasswordLoading(false);
     }
-  };
-
-  const openForgot = () => {
-    setResetError(null);
-    setResetSuccess(false);
-    setResetEmail(email.trim());
-    setView("forgot");
   };
 
   const backToStep1 = () => {
     setFlowStep(1);
     setPassword("");
     setError(null);
+    setPasswordResetLinkSent(false);
   };
 
   if (checkingAuth) {
@@ -212,9 +208,8 @@ export default function LoginPage() {
 
           <div className="flex min-h-0 flex-1 flex-col justify-center">
             <div className="mx-auto w-full max-w-[28rem]">
-              {view === "login" ? (
-                <AnimatePresence mode="wait">
-                  {flowStep === 1 ? (
+              <AnimatePresence mode="wait">
+                {flowStep === 1 ? (
                     <motion.div
                       key="step1"
                       initial={stepTransition.initial}
@@ -321,84 +316,36 @@ export default function LoginPage() {
                             required
                             maxLength={72}
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => {
+                              setPassword(e.target.value);
+                              setPasswordResetLinkSent(false);
+                            }}
                             className={inputClassName}
                             placeholder="••••••••"
                           />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void handleForgotPasswordClick()}
+                              disabled={forgotPasswordLoading}
+                              className="border-none bg-transparent p-0 text-left text-[0.875rem] font-medium !text-[#008bff] hover:underline disabled:opacity-50"
+                            >
+                              {forgotPasswordLoading ? "Sending…" : "Forgot password?"}
+                            </button>
+                          </div>
+                          {passwordResetLinkSent ? (
+                            <p className="text-[0.875rem] text-white/[0.6]" role="status">
+                              Password reset link sent to your email
+                            </p>
+                          ) : null}
                         </div>
                         <button type="submit" disabled={loading} className={primaryBtnClass}>
                           {loading ? "Signing in…" : "Sign in"}
                         </button>
                       </form>
-
-                      <button
-                        type="button"
-                        onClick={openForgot}
-                        className="mt-6 text-[0.875rem] font-medium text-[#008bff] hover:underline md:text-left"
-                      >
-                        Forgot password?
-                      </button>
                     </motion.div>
                   )}
-                </AnimatePresence>
-              ) : (
-                <>
-                  <h1 className="mb-4 text-[1.75rem] font-bold leading-tight md:text-[2rem]">
-                    Reset your password
-                  </h1>
-                  <p className="text-[0.9rem] text-white/[0.6]">
-                    We&apos;ll email you a link to choose a new password.
-                  </p>
-
-                  {resetError && (
-                    <div
-                      className="mt-3 rounded-lg border border-red-500/30 bg-red-950/40 p-3 text-[0.875rem] text-red-200"
-                      role="alert"
-                    >
-                      {resetError}
-                    </div>
-                  )}
-
-                  {resetSuccess ? (
-                    <p className="mt-3 text-[0.9rem] text-white/[0.6]">
-                      Check your inbox — we&apos;ve sent you a password reset link.
-                    </p>
-                  ) : (
-                    <form onSubmit={handleResetPassword} className="mt-3 flex flex-col gap-3">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="reset-email" className={labelClassName}>
-                          Email
-                        </label>
-                        <input
-                          id="reset-email"
-                          type="email"
-                          autoComplete="email"
-                          required
-                          value={resetEmail}
-                          onChange={(e) => setResetEmail(e.target.value)}
-                          className={inputClassName}
-                          placeholder="you@example.com"
-                        />
-                      </div>
-                      <button type="submit" disabled={resetLoading} className={primaryBtnClass}>
-                        {resetLoading ? "Sending…" : "Send reset link"}
-                      </button>
-                    </form>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setView("login");
-                      setResetError(null);
-                      setResetSuccess(false);
-                    }}
-                    className="mt-6 text-[0.875rem] font-medium text-[#008bff] hover:underline"
-                  >
-                    Back to log in
-                  </button>
-                </>
-              )}
+              </AnimatePresence>
             </div>
           </div>
 

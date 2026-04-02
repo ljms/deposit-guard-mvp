@@ -25,8 +25,8 @@ export default function ReportCompleteEmail({
 }: ReportCompleteEmailProps) {
   const trimmedName = userName?.trim();
   const lead = trimmedName
-    ? `Great news, ${trimmedName}. Your condition report has been generated and is ready to download.`
-    : "Great news. Your condition report has been generated and is ready to download.";
+    ? `Great news, ${trimmedName}. Your property condition report has been generated and is ready to download.`
+    : "Great news. Your propertycondition report has been generated and is ready to download.";
 
   const paragraphStyle: React.CSSProperties = {
     fontSize: 14,
@@ -68,7 +68,7 @@ export default function ReportCompleteEmail({
         <Text style={{ fontSize: 13, color: "#888888", margin: 0 }}>Generated: {generatedDate}</Text>
       </Section>
       <Text style={paragraphStyle}>
-        Your report is now locked and can&apos;t be edited. This is what makes it credible evidence —
+        Your report is now locked and can&apos;t be edited. This is what makes it credible evidence; 
         it proves nothing has been tampered with after the fact.
       </Text>
       <Row style={{ marginTop: 8 }}>

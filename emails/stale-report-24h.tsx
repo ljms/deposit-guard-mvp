@@ -1,14 +1,6 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Button, Heading, Section, Text } from "@react-email/components";
+import * as React from "react";
+import { EmailLayout } from "./components/EmailLayout";
 
 type StaleReport24hEmailProps = {
   propertyAddress: string;
@@ -16,137 +8,65 @@ type StaleReport24hEmailProps = {
   hoursRemaining: number;
 };
 
-export function StaleReport24hEmail({
-  propertyAddress,
-  reportLink,
-  hoursRemaining,
-}: StaleReport24hEmailProps) {
+export function StaleReport24hEmail({ propertyAddress, reportLink }: StaleReport24hEmailProps) {
+  const paragraphStyle: React.CSSProperties = {
+    fontSize: 14,
+    color: "#4a4a4a",
+    lineHeight: 1.65,
+    margin: "0 0 16px",
+  };
+
   return (
-    <Html>
-      <Head />
-      <Preview>Your report will be permanently deleted tomorrow</Preview>
-      <Body style={body}>
-        <Container style={container}>
-          <Section style={headerBand}>
-            <Text style={logoText}>Deposit Guard</Text>
-          </Section>
-          <Section style={content}>
-            <Text style={heading}>Urgent: report deletion in 24 hours</Text>
-            <Text style={paragraph}>
-              Your incomplete, unpaid report for the property below will be
-              permanently deleted tomorrow:
-            </Text>
-            <Text style={addressText}>{propertyAddress}</Text>
-            <Text style={paragraph}>
-              Incomplete unpaid reports are automatically deleted after 7 days.
-              This report will be deleted in {hoursRemaining} hours unless you
-              complete it now.
-            </Text>
-            <Button href={reportLink} style={cta}>
-              Complete Your Report
-            </Button>
-            <Text style={paragraph}>
-              To keep this report, please return now and finish it before the
-              deletion deadline.
-            </Text>
-            <Hr style={divider} />
-            <Text style={footerBrand}>Deposit Guard</Text>
-            <Text style={footerNote}>
-              You&apos;re receiving this because you have an incomplete report
-              on Deposit Guard.
-            </Text>
-          </Section>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview="Your report will be permanently deleted tomorrow">
+      <Heading
+        as="h1"
+        style={{
+          fontSize: 20,
+          fontWeight: 600,
+          color: "#1a1a86",
+          margin: "0 0 12px",
+          lineHeight: 1.3,
+        }}
+      >
+        Your report will be deleted tomorrow
+      </Heading>
+      <Text style={paragraphStyle}>
+        Your incomplete report for the property below will be permanently deleted tomorrow. Complete your
+        report now to keep it.
+      </Text>
+      <Section
+        style={{
+          background: "#f9fafb",
+          borderRadius: 8,
+          padding: 16,
+          border: "1px solid #f0f0f0",
+          marginTop: 20,
+          marginBottom: 24,
+        }}
+      >
+        <Text style={{ fontSize: 14, color: "#4a4a4a", fontWeight: 600, margin: 0 }}>{propertyAddress}</Text>
+      </Section>
+      <Text style={paragraphStyle}>
+        To keep this report, please return and finish it before the deletion deadline.
+      </Text>
+      <Section style={{ textAlign: "left" }}>
+        <Button
+          href={reportLink}
+          style={{
+            background: "#008bff",
+            color: "#ffffff",
+            fontSize: 14,
+            fontWeight: 600,
+            padding: "12px 28px",
+            borderRadius: 6,
+            textDecoration: "none",
+            lineHeight: 1.25,
+            display: "inline-block",
+          }}
+        >
+          Complete Your Report
+        </Button>
+      </Section>
+    </EmailLayout>
   );
 }
-
-const body = {
-  margin: 0,
-  padding: "24px 0",
-  backgroundColor: "#f3f4f6",
-  fontFamily:
-    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
-};
-
-const container = {
-  maxWidth: "600px",
-  margin: "0 auto",
-  backgroundColor: "#ffffff",
-  borderRadius: "8px",
-  overflow: "hidden",
-};
-
-const headerBand = {
-  backgroundColor: "#1a1a86",
-  padding: "18px 24px",
-};
-
-const logoText = {
-  margin: 0,
-  color: "#ffffff",
-  fontWeight: "700",
-  fontSize: "22px",
-  lineHeight: "1.2",
-};
-
-const content = {
-  padding: "24px",
-  color: "#111827",
-};
-
-const heading = {
-  margin: "0 0 12px",
-  fontSize: "22px",
-  lineHeight: "1.3",
-  fontWeight: "700",
-  color: "#111827",
-};
-
-const paragraph = {
-  margin: "0 0 14px",
-  fontSize: "15px",
-  lineHeight: "1.6",
-  color: "#111827",
-};
-
-const addressText = {
-  margin: "0 0 14px",
-  fontSize: "16px",
-  lineHeight: "1.4",
-  color: "#111827",
-  fontWeight: "700",
-};
-
-const cta = {
-  display: "inline-block",
-  margin: "6px 0 16px",
-  padding: "12px 18px",
-  borderRadius: "6px",
-  backgroundColor: "#008bff",
-  color: "#ffffff",
-  textDecoration: "none",
-  fontSize: "15px",
-  fontWeight: "600",
-};
-
-const divider = {
-  margin: "20px 0 12px",
-  borderColor: "#e5e7eb",
-};
-
-const footerBrand = {
-  margin: "0 0 4px",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  color: "#6b7280",
-  fontWeight: "600",
-};
-
-const footerNote = {
-  margin: 0,
-  fontSize: "12px",
-  lineHeight: "1.5",
-  color: "#6b7280",
-};

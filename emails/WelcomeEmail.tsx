@@ -42,7 +42,8 @@ export default function WelcomeEmail({ userName }: WelcomeEmailProps) {
       </Text>
       <Text style={{ ...paragraphStyle, marginBottom: 24 }}>
         The sooner you create your check-in report after moving in, the stronger your evidence will
-        be if there&apos;s ever a dispute. You can also use Deposit Guard to create condition reports
+        be if there&apos;s ever a dispute.</Text>
+      <Text style={{ ...paragraphStyle, marginBottom: 24 }}>You can also use Deposit Guard to create condition reports
         before you move out, or if there are any issues with the property during your tenancy, such as
         damage that needs to be repaired.
       </Text>

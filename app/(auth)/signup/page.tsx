@@ -112,14 +112,45 @@ function SignupPageContent() {
         setLoading(false);
         return;
       }
-      if (signUpData?.user) {
-        await supabase
-          .from("profiles")
-          .update({
-            terms_accepted: true,
-            terms_accepted_at: new Date().toISOString(),
-          })
-          .eq("id", signUpData.user.id);
+      const userId = signUpData?.user?.id;
+      if (userId) {
+        await new Promise((r) => setTimeout(r, 500));
+
+        const termsPayload = {
+          terms_accepted: true,
+          terms_accepted_at: new Date().toISOString(),
+        };
+
+        let termsApplied = false;
+        for (let attempt = 0; attempt < 5 && !termsApplied; attempt++) {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 400));
+          }
+          const { data: updatedRows, error: profileError } = await supabase
+            .from("profiles")
+            .update(termsPayload)
+            .eq("id", userId)
+            .select("id");
+
+          if (profileError) {
+            console.error("Profile terms update failed:", profileError);
+            continue;
+          }
+          if (updatedRows && updatedRows.length > 0) {
+            termsApplied = true;
+          } else {
+            console.warn(
+              `[signup] Profile terms update affected 0 rows (attempt ${attempt + 1}/5); profile row may not exist yet.`
+            );
+          }
+        }
+
+        if (!termsApplied) {
+          console.error(
+            "[signup] Profile terms_accepted was not set after signUp; check trigger timing or RLS."
+          );
+        }
+
         try {
           const siteBase = process.env.NEXT_PUBLIC_SITE_URL || "https://app.depositguard.com";
           const welcomeRes = await fetch(`${siteBase}/api/emails/welcome`, {
