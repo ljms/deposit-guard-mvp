@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-/** Canonical marketing-site URLs (absolute so app host e.g. app.depositguard.com never resolves /privacy locally). */
+/** Canonical marketing-site URLs (absolute so app host e.g. platform.depositguard.com never resolves /privacy locally). */
 export const LEGAL_TERMS_URL = "https://depositguard.com/terms";
 export const LEGAL_PRIVACY_URL = "https://depositguard.com/privacy";
 

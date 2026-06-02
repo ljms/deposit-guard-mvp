@@ -8,6 +8,11 @@ export type WelcomeEmailProps = {
 
 const PREVIEW_TEXT = "Start documenting your property to protect your deposit";
 
+const APP_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://platform.depositguard.com";
+
 export default function WelcomeEmail({ userName }: WelcomeEmailProps) {
   const trimmed = userName?.trim();
   const heading =
@@ -49,7 +54,7 @@ export default function WelcomeEmail({ userName }: WelcomeEmailProps) {
       </Text>
       <Section style={{ textAlign: "left" }}>
         <Button
-          href="https://app.depositguard.com/dashboard"
+          href={`${APP_BASE_URL}/dashboard`}
           style={{
             background: "#008bff",
             color: "#ffffff",

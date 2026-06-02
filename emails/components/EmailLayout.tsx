@@ -17,6 +17,11 @@ const POPPINS_WOFF2_400 =
 const POPPINS_WOFF2_600 =
   "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2";
 
+const APP_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://platform.depositguard.com";
+
 type EmailLayoutProps = {
   children: React.ReactNode;
   preview?: string;
@@ -53,7 +58,7 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
         <Container style={{ maxWidth: 520, margin: "0 auto" }}>
           <Section style={{ marginBottom: 20, textAlign: "center" }}>
             <Img
-              src="https://app.depositguard.com/dg-logo-dark.png"
+              src={`${APP_BASE_URL}/dg-logo-dark.png`}
               alt="Deposit Guard"
               height={56}
               style={{ margin: "0 auto" }}

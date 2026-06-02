@@ -388,7 +388,11 @@ export async function generateReportPdf(
   doc.setTextColor(100, 116, 139);
   doc.text("View your report online", margin, y);
   y += 5;
-  const viewOnlineUrl = `https://app.depositguard.com/r/${reportId}`;
+  const appBase =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://platform.depositguard.com";
+  const viewOnlineUrl = `${appBase}/r/${reportId}`;
   doc.setFillColor(11, 165, 222);
   doc.roundedRect(margin, y, 60, 9, 2, 2, "F");
   doc.setTextColor(255, 255, 255);

@@ -31,7 +31,7 @@ const FAQ_CATEGORIES: FaqCategory[] = [
       {
         question: "Do I need to download an app?",
         answer:
-          "No. Deposit Guard works in your mobile browser — just go to app.depositguard.com and sign up.",
+          "No. Deposit Guard works in your mobile browser — just go to platform.depositguard.com and sign up.",
       },
       {
         question: "How do I create a report?",

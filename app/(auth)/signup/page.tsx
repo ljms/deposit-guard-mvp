@@ -152,7 +152,10 @@ function SignupPageContent() {
         }
 
         try {
-          const siteBase = process.env.NEXT_PUBLIC_SITE_URL || "https://app.depositguard.com";
+          const siteBase =
+            process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.NEXT_PUBLIC_SITE_URL ||
+            "https://platform.depositguard.com";
           const welcomeRes = await fetch(`${siteBase}/api/emails/welcome`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

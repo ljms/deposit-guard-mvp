@@ -76,7 +76,10 @@ export async function GET(request: Request) {
         (typeof meta.full_name === "string" && meta.full_name.trim()) ||
         (typeof meta.name === "string" && meta.name.trim()) ||
         undefined;
-      const siteBase = process.env.NEXT_PUBLIC_SITE_URL || "https://app.depositguard.com";
+      const siteBase =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "https://platform.depositguard.com";
       try {
         const welcomeRes = await fetch(`${siteBase}/api/emails/welcome`, {
           method: "POST",

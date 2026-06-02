@@ -20,7 +20,11 @@ function formatGeneratedDate(iso: string | null | undefined): string {
 
 export function notifyReportCompleteEmailClient(args: NotifyReportCompleteEmailArgs): void {
   if (typeof window === "undefined") return;
-  const reportUrl = `https://app.depositguard.com/r/${args.reportId}`;
+  const appBase =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    window.location.origin;
+  const reportUrl = `${appBase}/r/${args.reportId}`;
   const generatedDate = formatGeneratedDate(args.completedAtIso);
   void fetch(`${window.location.origin}/api/emails/report-complete`, {
     method: "POST",
